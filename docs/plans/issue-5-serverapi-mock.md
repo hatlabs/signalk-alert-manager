@@ -60,3 +60,19 @@ test/
 4. Mock state is resettable between tests
 5. Storage methods work correctly
 6. Logging methods capture output
+7. StreamBundle buses support filtering (Bacon.js filter)
+8. pushStreamValue auto-creates bus if needed
+
+## Design Notes
+
+### registerWithRouter NOT mocked
+
+The `registerWithRouter` method is part of the Plugin interface, not ServerAPI.
+The server calls this method on the plugin during startup - plugins don't call
+it on the server. For testing plugin routes, call the plugin's own
+`registerWithRouter(router)` method with a test router.
+
+### Bacon.js version
+
+Uses baconjs v3 as devDependency. The real Signal K server provides baconjs v1,
+but core Bus/Stream behavior is compatible for testing purposes.

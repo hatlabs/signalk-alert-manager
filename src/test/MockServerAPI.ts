@@ -318,13 +318,15 @@ export class MockServerAPI {
 
   /**
    * Push a value to a stream bus.
-   * Use this to simulate incoming stream data.
+   * Auto-creates the bus if it doesn't exist.
    */
   pushStreamValue(path: string, value: StreamValue): void {
-    const bus = this.streamBuses.get(path)
-    if (bus) {
-      bus.push(value)
+    let bus = this.streamBuses.get(path)
+    if (!bus) {
+      bus = new Bus()
+      this.streamBuses.set(path, bus)
     }
+    bus.push(value)
   }
 
   /**

@@ -202,6 +202,68 @@ describe('MockServerAPI', () => {
 
       expect(received).toHaveLength(1)
     })
+
+    it('should auto-create bus when pushStreamValue is called first', () => {
+      const received: unknown[] = []
+
+      // Push before any subscriber exists
+      mockApi.pushStreamValue('navigation.courseOverGround', {
+        path: 'navigation.courseOverGround',
+        value: 1.5,
+        context: 'vessels.self',
+        timestamp: '2026-01-14T10:00:00Z'
+      })
+
+      // Subscribe after push - bus should exist
+      mockApi.streambundle.getSelfBus('navigation.courseOverGround').onValue((v: unknown) => {
+        received.push(v)
+      })
+
+      // Push again - subscriber should receive
+      mockApi.pushStreamValue('navigation.courseOverGround', {
+        path: 'navigation.courseOverGround',
+        value: 2.0,
+        context: 'vessels.self',
+        timestamp: '2026-01-14T10:01:00Z'
+      })
+
+      expect(received).toHaveLength(1)
+      expect((received[0] as { value: number }).value).toBe(2.0)
+    })
+
+    it('should support filtering on bus streams', () => {
+      const received: unknown[] = []
+
+      // Test that Bacon.js filter works on the mock bus
+      mockApi.streambundle
+        .getSelfBus('notifications')
+        .filter((v: unknown) => {
+          const val = v as { path: string }
+          return val.path.startsWith('notifications.engine')
+        })
+        .onValue((v: unknown) => {
+          received.push(v)
+        })
+
+      // Push matching value
+      mockApi.pushStreamValue('notifications', {
+        path: 'notifications.engine.overheating',
+        value: { state: 'alarm' },
+        context: 'vessels.self',
+        timestamp: '2026-01-14T10:00:00Z'
+      })
+
+      // Push non-matching value
+      mockApi.pushStreamValue('notifications', {
+        path: 'notifications.navigation.anchor',
+        value: { state: 'normal' },
+        context: 'vessels.self',
+        timestamp: '2026-01-14T10:00:01Z'
+      })
+
+      expect(received).toHaveLength(1)
+      expect((received[0] as { path: string }).path).toBe('notifications.engine.overheating')
+    })
   })
 
   describe('Reset', () => {
