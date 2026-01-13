@@ -121,21 +121,32 @@ const configSchema = {
  * Signal K plugin factory function.
  * Called by the server to instantiate the plugin.
  */
-export default function createPlugin(app: ServerAPI): Plugin {
-  let started = false
+/**
+ * Extended plugin interface with internal state access for testing.
+ */
+export interface AlertManagerPlugin extends Plugin {
+  /** Get the stored restart callback (for testing) */
+  getRestartCallback?: () => ((newConfiguration: object) => void) | undefined
+}
 
-  const plugin: Plugin = {
+export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
+  // Plugin state
+  let started = false
+  let restartCallback: ((newConfiguration: object) => void) | undefined
+
+  const plugin: AlertManagerPlugin = {
     id: 'signalk-alert-manager',
     name: 'Signal K Alert Manager',
     description: 'Centralized alert management following IEC 62682 and IMO standards',
 
     schema: configSchema,
 
-    start(_config: object, _restart: (newConfiguration: object) => void): void {
-      const config = _config as PluginConfig
+    start(config: object, restart: (newConfiguration: object) => void): void {
+      const pluginConfig = config as PluginConfig
       started = true
+      restartCallback = restart
 
-      app.debug('Starting alert manager with config:', config)
+      app.debug('Starting alert manager with config:', pluginConfig)
       app.setPluginStatus('Initialized')
     },
 
@@ -146,7 +157,11 @@ export default function createPlugin(app: ServerAPI): Plugin {
 
       app.debug('Stopping alert manager')
       started = false
-    }
+      restartCallback = undefined
+    },
+
+    // Test utility to verify restart callback is stored
+    getRestartCallback: () => restartCallback
   }
 
   return plugin

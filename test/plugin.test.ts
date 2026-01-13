@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MockServerAPI } from '../src/test/MockServerAPI.js'
-import type { Plugin, ServerAPI } from '@signalk/server-api'
+import type { ServerAPI } from '@signalk/server-api'
 
-// Import the plugin factory function
-import pluginFactory from '../src/index.js'
+// Import the plugin factory function and extended interface
+import pluginFactory, { type AlertManagerPlugin } from '../src/index.js'
 
 // Schema type for type-safe property access
 interface PluginSchema {
@@ -13,7 +13,7 @@ interface PluginSchema {
 
 describe('Signal K Plugin', () => {
   let mockApi: MockServerAPI
-  let plugin: Plugin
+  let plugin: AlertManagerPlugin
 
   beforeEach(() => {
     mockApi = new MockServerAPI()
@@ -40,6 +40,11 @@ describe('Signal K Plugin', () => {
 
     it('should have a human-readable name', () => {
       expect(plugin.name).toBe('Signal K Alert Manager')
+    })
+
+    it('should have a description', () => {
+      expect(plugin.description).toBeDefined()
+      expect(typeof plugin.description).toBe('string')
     })
   })
 
@@ -80,6 +85,13 @@ describe('Signal K Plugin', () => {
         typeof plugin.schema === 'function' ? plugin.schema() : plugin.schema
       ) as PluginSchema
       expect(schema.properties).toHaveProperty('history')
+    })
+
+    it('should include sourceTimeout configuration', () => {
+      const schema = (
+        typeof plugin.schema === 'function' ? plugin.schema() : plugin.schema
+      ) as PluginSchema
+      expect(schema.properties).toHaveProperty('sourceTimeout')
     })
 
     it('should include UI configuration', () => {
@@ -182,17 +194,25 @@ describe('Signal K Plugin', () => {
       }).not.toThrow()
     })
 
-    it('should receive restart callback', () => {
-      let restartCalled = false
+    it('should store restart callback for later use', () => {
       const restartFn = (): void => {
-        restartCalled = true
+        /* restart callback */
       }
 
       plugin.start({}, restartFn)
 
-      // Plugin should store the restart callback for later use
-      // We just verify it receives it without error
-      expect(restartCalled).toBe(false)
+      // Verify the restart callback is stored
+      expect(plugin.getRestartCallback).toBeDefined()
+      expect(plugin.getRestartCallback?.()).toBe(restartFn)
+    })
+
+    it('should clear restart callback on stop', () => {
+      plugin.start({}, () => {
+        /* restart callback */
+      })
+      void plugin.stop()
+
+      expect(plugin.getRestartCallback?.()).toBeUndefined()
     })
   })
 })
