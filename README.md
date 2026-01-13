@@ -29,4 +29,4 @@ This plugin transforms Signal K's ad-hoc notification model into a structured al
 
 ## License
 
-TBD
+Apache License 2.0 - see [LICENSE](LICENSE)
