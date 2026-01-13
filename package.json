@@ -1,0 +1,63 @@
+{
+  "name": "signalk-alert-manager",
+  "version": "0.1.0",
+  "description": "Signal K server plugin for centralized alert management following maritime (IMO) and process industry (IEC) standards.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-utility",
+    "signalk",
+    "alerts",
+    "alarms",
+    "notifications",
+    "maritime",
+    "imo",
+    "iec-62682"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint --fix src/ test/",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hatlabs/signalk-alert-manager.git"
+  },
+  "author": "Hat Labs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/hatlabs/signalk-alert-manager/issues"
+  },
+  "homepage": "https://github.com/hatlabs/signalk-alert-manager#readme",
+  "peerDependencies": {
+    "@signalk/server-api": "^2.10.0"
+  },
+  "devDependencies": {
+    "@signalk/server-api": "^2.10.0",
+    "@tsconfig/node22": "^22.0.1",
+    "@types/node": "^22.15.0",
+    "@vitest/coverage-v8": "^3.1.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "lefthook": "^1.11.13",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.29.1",
+    "vitest": "^3.1.1"
+  },
+  "signalk-plugin-enabled-by-default": false
+}
