@@ -171,7 +171,7 @@ interface AlertDefinition {
 1. **Signal K Notifications**: Existing `notifications.*` paths are intercepted and transformed
 2. **Plugin API**: Other plugins raise alerts via ServerAPI methods
 3. **HTTP API**: External clients raise alerts via REST endpoints
-4. **NMEA 2000**: PGN 129683 alerts received and published bidirectionally
+4. **NMEA 2000**: PGN 126983 alerts received and published bidirectionally
 
 ### 5.2 Source Authentication
 
@@ -193,7 +193,7 @@ When a source goes offline while its alerts are active:
 
 #### Raise Alert
 ```
-POST /signalk/v2/api/alerts
+POST /plugins/signalk-alert-manager/alerts
 Content-Type: application/json
 
 {
@@ -211,25 +211,25 @@ Content-Type: application/json
 
 #### List Alerts
 ```
-GET /signalk/v2/api/alerts
-GET /signalk/v2/api/alerts?state=unacknowledged
-GET /signalk/v2/api/alerts?priority=alarm,emergency
-GET /signalk/v2/api/alerts?category=engine
+GET /plugins/signalk-alert-manager/alerts
+GET /plugins/signalk-alert-manager/alerts?state=unacknowledged
+GET /plugins/signalk-alert-manager/alerts?priority=alarm,emergency
+GET /plugins/signalk-alert-manager/alerts?category=engine
 ```
 
 #### Get Single Alert
 ```
-GET /signalk/v2/api/alerts/{id}
+GET /plugins/signalk-alert-manager/alerts/{id}
 ```
 
 #### Acknowledge Alert
 ```
-POST /signalk/v2/api/alerts/{id}/acknowledge
+POST /plugins/signalk-alert-manager/alerts/{id}/acknowledge
 ```
 
 #### Silence Alert
 ```
-POST /signalk/v2/api/alerts/{id}/silence
+POST /plugins/signalk-alert-manager/alerts/{id}/silence
 Content-Type: application/json
 
 {
@@ -239,12 +239,12 @@ Content-Type: application/json
 
 #### Silence All
 ```
-POST /signalk/v2/api/alerts/silence-all
+POST /plugins/signalk-alert-manager/alerts/silence-all
 ```
 
 #### Clear Condition (for sources updating their alerts)
 ```
-PUT /signalk/v2/api/alerts/{id}/condition
+PUT /plugins/signalk-alert-manager/alerts/{id}/condition
 Content-Type: application/json
 
 {
@@ -289,7 +289,7 @@ interface AlertManagerAPI {
 
 ## 7. NMEA 2000 Integration
 
-### 7.1 PGN 129683 - Alert
+### 7.1 PGN 126983 - Alert
 
 Bidirectional support:
 - **Receive**: N2K alerts from MFDs and sensors are imported as managed alerts
@@ -333,7 +333,7 @@ The UI follows **OpenBridge** design guidelines for maritime alert interfaces:
 For physical alarm panels, buzzers, and displays:
 
 ```
-GET /signalk/v2/api/alerts/indication
+GET /plugins/signalk-alert-manager/alerts/indication
 ```
 
 Returns current indication state:
@@ -365,8 +365,8 @@ Full history log maintained:
 - Queryable via API
 
 ```
-GET /signalk/v2/api/alerts/history
-GET /signalk/v2/api/alerts/history?from=2026-01-01&to=2026-01-13
+GET /plugins/signalk-alert-manager/alerts/history
+GET /plugins/signalk-alert-manager/alerts/history?from=2026-01-01&to=2026-01-13
 ```
 
 ## 10. Configuration
@@ -422,7 +422,7 @@ GET /signalk/v2/api/alerts/history?from=2026-01-01&to=2026-01-13
 
 ### 11.2 Post-MVP Enhancements
 
-1. **NMEA 2000 PGN 129683** (v1.1)
+1. **NMEA 2000 PGN 126983** (v1.1)
 2. **Alert History with Query API** (v1.1)
 3. **Escalation** (v1.2)
 4. **OpenBridge-compliant UI polish** (v1.2)
