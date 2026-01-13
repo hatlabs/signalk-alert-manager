@@ -5,4 +5,17 @@
  * in subsequent issues.
  */
 
-export {}
+// Export all types for use by other plugins and clients
+export type {
+  AlertPriority,
+  AlertState,
+  Alert,
+  AlertDefinition,
+  IndicationState,
+  RaiseAlertRequest,
+  AlertFilter,
+  HistoryQuery,
+  HistoryEventType,
+  HistoryEntry,
+  IAlertStore
+} from './types.js'
