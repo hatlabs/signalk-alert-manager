@@ -121,6 +121,49 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * Load alerts from the store into memory.
+   * Call this after construction to restore persisted alerts.
+   */
+  async loadFromStore(): Promise<void> {
+    if (!this.store) {
+      return
+    }
+
+    const alerts = await this.store.getAll()
+
+    for (const alert of alerts) {
+      // Store in memory
+      this.alerts.set(alert.id, alert)
+
+      // Rebuild alert index for duplicate detection
+      const indexKey = this.getIndexKey(alert.sourceId, alert.message)
+      this.alertIndex.set(indexKey, alert.id)
+
+      // Start escalation timer for unacknowledged warnings
+      if (alert.state === 'unacknowledged' && alert.priority === 'warning') {
+        this.escalationTimer.startTimer(alert.id, alert.priority)
+      }
+
+      // Handle silenced alerts
+      if (alert.silenced && alert.silencedUntil) {
+        const remainingMs = new Date(alert.silencedUntil).getTime() - Date.now()
+
+        if (remainingMs <= 0) {
+          // Silence has expired - unsilence immediately
+          const unsilenced = this.stateMachine.unsilence(alert)
+          this.alerts.set(alert.id, unsilenced)
+
+          // Persist the unsilenced state
+          await this.store.update(unsilenced)
+        } else {
+          // Start timer for remaining silence duration
+          this.startSilenceExpirationTimer(alert.id, remainingMs)
+        }
+      }
+    }
+  }
+
+  /**
    * Raise a new alert or update an existing one.
    *
    * If an alert from the same source with the same message already exists,
