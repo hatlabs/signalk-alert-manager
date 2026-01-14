@@ -441,13 +441,79 @@ describe('AlertStore', () => {
     })
   })
 
-  describe('schema migrations', () => {
-    it('should track schema version', async () => {
+  describe('robustness', () => {
+    it('should handle malformed JSON in data field gracefully', async () => {
       await store.initialize()
 
-      const version = store.getSchemaVersion()
+      // Save an alert with valid data
+      const alert = createTestAlert({ id: 'malformed-test' })
+      await store.save(alert)
 
-      expect(version).toBeGreaterThanOrEqual(1)
+      // Manually corrupt the JSON data in the database using a raw SQL update
+      // We need to access the database directly for this test
+      const { DatabaseSync } = await import('node:sqlite')
+      const db = new DatabaseSync(testDbPath)
+      db.exec("UPDATE alerts SET data = '{invalid json' WHERE id = 'malformed-test'")
+      db.close()
+
+      // Reopen store and verify it handles the malformed data gracefully
+      await store.close()
+      store = new AlertStore(testDbPath)
+      await store.initialize()
+
+      const retrieved = await store.get('malformed-test')
+
+      // Should return the alert without the data field (graceful degradation)
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.id).toBe('malformed-test')
+      expect(retrieved?.data).toBeUndefined()
+    })
+  })
+
+  describe('concurrent access', () => {
+    it('should handle concurrent read and write operations', async () => {
+      await store.initialize()
+
+      // Create multiple alerts concurrently
+      const alerts = Array.from({ length: 10 }, (_, i) =>
+        createTestAlert({ id: `concurrent-${String(i)}`, message: `Alert ${String(i)}` })
+      )
+
+      // Save all alerts concurrently
+      await Promise.all(alerts.map((alert) => store.save(alert)))
+
+      // Read all alerts concurrently
+      const [all, single1, single2] = await Promise.all([
+        store.getAll(),
+        store.get('concurrent-0'),
+        store.get('concurrent-5')
+      ])
+
+      expect(all).toHaveLength(10)
+      expect(single1?.id).toBe('concurrent-0')
+      expect(single2?.id).toBe('concurrent-5')
+
+      // Update and delete concurrently
+      const updated = { ...alerts[0], message: 'Updated' }
+      await Promise.all([store.update(updated), store.delete('concurrent-9')])
+
+      const afterOps = await store.getAll()
+      expect(afterOps).toHaveLength(9)
+      expect(afterOps.find((a) => a.id === 'concurrent-0')?.message).toBe('Updated')
+    })
+  })
+
+  describe('schema migrations', () => {
+    it('should create required tables on initialization', async () => {
+      await store.initialize()
+
+      // Verify migrations ran successfully by testing that CRUD operations work
+      const alert = createTestAlert()
+      await store.save(alert)
+      const retrieved = await store.get(alert.id)
+
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.id).toBe(alert.id)
     })
   })
 })

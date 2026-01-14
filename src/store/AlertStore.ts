@@ -28,25 +28,35 @@ export class AlertStore implements IAlertStore {
 
   /**
    * Initialize the store - create database and tables.
+   * Safe to call multiple times (idempotent).
    */
   initialize(): Promise<void> {
-    // Create parent directories if needed
-    const dir = path.dirname(this.dbPath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    // Already initialized - return early to avoid resource leaks
+    if (this.db) {
+      return Promise.resolve()
     }
 
-    // Open database
-    const db = new DatabaseSync(this.dbPath)
-    this.db = db
+    try {
+      // Create parent directories if needed
+      const dir = path.dirname(this.dbPath)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
 
-    // Enable WAL mode for better concurrency
-    db.exec('PRAGMA journal_mode = WAL')
+      // Open database
+      const db = new DatabaseSync(this.dbPath)
+      this.db = db
 
-    // Run migrations
-    this.runMigrations(db)
+      // Enable WAL mode for better concurrency
+      db.exec('PRAGMA journal_mode = WAL')
 
-    return Promise.resolve()
+      // Run migrations
+      this.runMigrations(db)
+
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
+    }
   }
 
   /**
@@ -110,55 +120,63 @@ export class AlertStore implements IAlertStore {
    * Retrieve an alert by ID.
    */
   get(id: string): Promise<Alert | null> {
-    const db = this.getDb()
+    try {
+      const db = this.getDb()
 
-    const stmt = db.prepare('SELECT * FROM alerts WHERE id = ?')
-    const row = stmt.get(id) as AlertRow | undefined
+      const stmt = db.prepare('SELECT * FROM alerts WHERE id = ?')
+      const row = stmt.get(id) as AlertRow | undefined
 
-    if (!row) {
-      return Promise.resolve(null)
+      if (!row) {
+        return Promise.resolve(null)
+      }
+
+      return Promise.resolve(this.rowToAlert(row))
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
-
-    return Promise.resolve(this.rowToAlert(row))
   }
 
   /**
    * Retrieve all alerts matching the optional filter.
    */
   getAll(filter?: AlertFilter): Promise<Alert[]> {
-    const db = this.getDb()
+    try {
+      const db = this.getDb()
 
-    let sql = 'SELECT * FROM alerts WHERE 1=1'
-    const params: (string | number)[] = []
+      let sql = 'SELECT * FROM alerts WHERE 1=1'
+      const params: (string | number)[] = []
 
-    if (filter?.state) {
-      const states = Array.isArray(filter.state) ? filter.state : [filter.state]
-      const placeholders = states.map(() => '?').join(', ')
-      sql += ` AND state IN (${placeholders})`
-      params.push(...states)
+      if (filter?.state) {
+        const states = Array.isArray(filter.state) ? filter.state : [filter.state]
+        const placeholders = states.map(() => '?').join(', ')
+        sql += ` AND state IN (${placeholders})`
+        params.push(...states)
+      }
+
+      if (filter?.priority) {
+        const priorities = Array.isArray(filter.priority) ? filter.priority : [filter.priority]
+        const placeholders = priorities.map(() => '?').join(', ')
+        sql += ` AND priority IN (${placeholders})`
+        params.push(...priorities)
+      }
+
+      if (filter?.category) {
+        sql += ' AND category = ?'
+        params.push(filter.category)
+      }
+
+      if (filter?.stale !== undefined) {
+        sql += ' AND stale = ?'
+        params.push(filter.stale ? 1 : 0)
+      }
+
+      const stmt = db.prepare(sql)
+      const rows = stmt.all(...params) as unknown as AlertRow[]
+
+      return Promise.resolve(rows.map((row) => this.rowToAlert(row)))
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
-
-    if (filter?.priority) {
-      const priorities = Array.isArray(filter.priority) ? filter.priority : [filter.priority]
-      const placeholders = priorities.map(() => '?').join(', ')
-      sql += ` AND priority IN (${placeholders})`
-      params.push(...priorities)
-    }
-
-    if (filter?.category) {
-      sql += ' AND category = ?'
-      params.push(filter.category)
-    }
-
-    if (filter?.stale !== undefined) {
-      sql += ' AND stale = ?'
-      params.push(filter.stale ? 1 : 0)
-    }
-
-    const stmt = db.prepare(sql)
-    const rows = stmt.all(...params) as unknown as AlertRow[]
-
-    return Promise.resolve(rows.map((row) => this.rowToAlert(row)))
   }
 
   /**
@@ -227,24 +245,16 @@ export class AlertStore implements IAlertStore {
    * Delete an alert from the store.
    */
   delete(id: string): Promise<void> {
-    const db = this.getDb()
+    try {
+      const db = this.getDb()
 
-    const stmt = db.prepare('DELETE FROM alerts WHERE id = ?')
-    stmt.run(id)
+      const stmt = db.prepare('DELETE FROM alerts WHERE id = ?')
+      stmt.run(id)
 
-    return Promise.resolve()
-  }
-
-  /**
-   * Get the current schema version.
-   */
-  getSchemaVersion(): number {
-    const db = this.getDb()
-
-    const stmt = db.prepare('SELECT version FROM schema_version ORDER BY version DESC LIMIT 1')
-    const row = stmt.get() as { version: number } | undefined
-
-    return row?.version ?? 0
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
+    }
   }
 
   /**
@@ -273,64 +283,73 @@ export class AlertStore implements IAlertStore {
 
   /**
    * Migration to schema version 1.
+   * Wrapped in a transaction for atomicity.
    */
   private migrateToV1(db: DatabaseSync): void {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS alerts (
-        id TEXT PRIMARY KEY,
-        source_id TEXT NOT NULL,
-        priority TEXT NOT NULL,
-        state TEXT NOT NULL,
-        condition INTEGER NOT NULL,
-        latching INTEGER NOT NULL,
-        silenced INTEGER NOT NULL,
-        silenced_until TEXT,
-        message TEXT NOT NULL,
-        category TEXT,
-        data TEXT,
-        raised_at TEXT NOT NULL,
-        acknowledged_at TEXT,
-        acknowledged_by TEXT,
-        cleared_at TEXT,
-        source_online INTEGER NOT NULL,
-        last_source_update TEXT NOT NULL,
-        stale INTEGER NOT NULL,
-        context TEXT
-      )
-    `)
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS alerts (
+          id TEXT PRIMARY KEY,
+          source_id TEXT NOT NULL,
+          priority TEXT NOT NULL,
+          state TEXT NOT NULL,
+          condition INTEGER NOT NULL,
+          latching INTEGER NOT NULL,
+          silenced INTEGER NOT NULL,
+          silenced_until TEXT,
+          message TEXT NOT NULL,
+          category TEXT,
+          data TEXT,
+          raised_at TEXT NOT NULL,
+          acknowledged_at TEXT,
+          acknowledged_by TEXT,
+          cleared_at TEXT,
+          source_online INTEGER NOT NULL,
+          last_source_update TEXT NOT NULL,
+          stale INTEGER NOT NULL,
+          context TEXT
+        )
+      `)
 
-    // Create indexes for common query patterns
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_alerts_state ON alerts(state);
-      CREATE INDEX IF NOT EXISTS idx_alerts_priority ON alerts(priority);
-      CREATE INDEX IF NOT EXISTS idx_alerts_category ON alerts(category);
-      CREATE INDEX IF NOT EXISTS idx_alerts_source_id ON alerts(source_id);
-    `)
+      // Create indexes for common query patterns
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_alerts_state ON alerts(state);
+        CREATE INDEX IF NOT EXISTS idx_alerts_priority ON alerts(priority);
+        CREATE INDEX IF NOT EXISTS idx_alerts_category ON alerts(category);
+        CREATE INDEX IF NOT EXISTS idx_alerts_source_id ON alerts(source_id);
+      `)
 
-    // Create history table for future use (Issue #12)
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS history (
-        id TEXT PRIMARY KEY,
-        alert_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        user_id TEXT,
-        previous_state TEXT,
-        new_state TEXT,
-        previous_priority TEXT,
-        new_priority TEXT,
-        details TEXT
-      )
-    `)
+      // Create history table for future use (Issue #12)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS history (
+          id TEXT PRIMARY KEY,
+          alert_id TEXT NOT NULL,
+          event_type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          user_id TEXT,
+          previous_state TEXT,
+          new_state TEXT,
+          previous_priority TEXT,
+          new_priority TEXT,
+          details TEXT
+        )
+      `)
 
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_history_alert_id ON history(alert_id);
-      CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
-    `)
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_history_alert_id ON history(alert_id);
+        CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
+      `)
 
-    // Record migration
-    const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
-    stmt.run(1, new Date().toISOString())
+      // Record migration
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(1, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
   }
 
   /**
@@ -370,7 +389,11 @@ export class AlertStore implements IAlertStore {
       alert.category = row.category
     }
     if (row.data) {
-      alert.data = JSON.parse(row.data) as Record<string, unknown>
+      try {
+        alert.data = JSON.parse(row.data) as Record<string, unknown>
+      } catch {
+        // Malformed JSON in database - skip this field rather than failing entirely
+      }
     }
     if (row.acknowledged_at) {
       alert.acknowledgedAt = row.acknowledged_at
