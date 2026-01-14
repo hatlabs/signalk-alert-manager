@@ -262,6 +262,56 @@ export interface HistoryEntry {
 }
 
 // =============================================================================
+// Configuration Types
+// =============================================================================
+
+/**
+ * Plugin configuration structure.
+ *
+ * All fields are optional - defaults are applied by the plugin.
+ * @see docs/SPEC.md Section 10 for configuration details
+ */
+export interface PluginConfig {
+  /** Escalation settings for priority promotion */
+  escalation?: {
+    warningToAlarm?: {
+      /** Enable automatic warning-to-alarm escalation */
+      enabled?: boolean
+      /** Seconds before unacknowledged warning escalates to alarm */
+      timeoutSeconds?: number
+    }
+  }
+
+  /** Silencing duration limits */
+  silencing?: {
+    /** Maximum seconds an alarm can be silenced (default: 30) */
+    alarmMaxSeconds?: number
+    /** Maximum seconds an emergency can be silenced (default: 10) */
+    emergencyMaxSeconds?: number
+  }
+
+  /** Source timeout settings */
+  sourceTimeout?: {
+    /** Seconds before marking alert as stale if source stops updating */
+    markStaleAfterSeconds?: number
+  }
+
+  /** Alert history retention settings */
+  history?: {
+    /** Days to retain alert history (default: 90) */
+    retentionDays?: number
+  }
+
+  /** UI settings */
+  ui?: {
+    /** Enable browser audio alerts (default: true) */
+    audioEnabled?: boolean
+    /** Show alert banner in UI (default: true) */
+    showBanner?: boolean
+  }
+}
+
+// =============================================================================
 // Interface Types
 // =============================================================================
 
