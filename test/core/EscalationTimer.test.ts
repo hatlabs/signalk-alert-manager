@@ -4,7 +4,7 @@ import {
   type EscalationEvent,
   type EscalationTimerConfig
 } from '../../src/core/EscalationTimer.js'
-import { FakeTimerFunctions } from '../../src/test/FakeTimerFunctions.js'
+import { FakeTimerFunctions } from '../helpers/FakeTimerFunctions.js'
 
 describe('EscalationTimer', () => {
   let timer: EscalationTimer
@@ -376,6 +376,22 @@ describe('EscalationTimer', () => {
       expect(escalationEvents).toHaveLength(1)
     })
 
+    it('should treat negative timeout as immediate escalation', () => {
+      // Negative values result in immediate timer expiration (same as setTimeout behavior)
+      timer = new EscalationTimer(
+        { enabled: true, timeoutSeconds: -10 },
+        (event) => escalationEvents.push(event),
+        fakeTimers
+      )
+
+      timer.startTimer('alert-1', 'warning')
+
+      // Advance by 0 to process timers that have already expired
+      fakeTimers.advanceTime(0)
+
+      expect(escalationEvents).toHaveLength(1)
+    })
+
     it('should use default timer functions when not provided', () => {
       // This test just verifies the constructor accepts undefined timerFunctions
       const timerWithDefaults = new EscalationTimer(
@@ -388,6 +404,27 @@ describe('EscalationTimer', () => {
       expect(() => {
         timerWithDefaults.stop()
       }).not.toThrow()
+    })
+
+    it('should propagate callback exceptions to caller', () => {
+      const error = new Error('Callback failed')
+      timer = new EscalationTimer(
+        defaultConfig,
+        () => {
+          throw error
+        },
+        fakeTimers
+      )
+
+      timer.startTimer('alert-1', 'warning')
+
+      // Exception should propagate - caller is responsible for handling
+      expect(() => {
+        fakeTimers.advanceTime(300 * 1000)
+      }).toThrow(error)
+
+      // Timer should still be removed from tracking (cleanup happens before callback)
+      expect(timer.hasTimer('alert-1')).toBe(false)
     })
   })
 })

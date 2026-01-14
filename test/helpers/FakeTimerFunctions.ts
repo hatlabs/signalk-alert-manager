@@ -4,7 +4,7 @@
  * Provides controllable time advancement for deterministic tests.
  */
 
-import type { TimerFunctions, TimerHandle } from '../core/EscalationTimer.js'
+import type { TimerFunctions, TimerHandle } from '../../src/core/EscalationTimer.js'
 
 interface PendingTimer {
   callback: () => void

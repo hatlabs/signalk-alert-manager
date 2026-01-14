@@ -194,9 +194,9 @@ export class EscalationTimer {
    * Cancel all active timers.
    */
   private cancelAllTimers(): void {
-    for (const [alertId, handle] of this.activeTimers) {
+    for (const handle of this.activeTimers.values()) {
       this.timerFns.clearTimeout(handle)
-      this.activeTimers.delete(alertId)
     }
+    this.activeTimers.clear()
   }
 }
