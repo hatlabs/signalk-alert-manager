@@ -89,16 +89,28 @@ export class AlertManager extends EventEmitter {
   private escalationTimer: EscalationTimer
   private store?: IAlertStore
   private stopped = false
+  private timerFns: TimerFunctions
 
   /**
    * Index mapping sourceId+message to alertId for duplicate detection.
    */
   private alertIndex = new Map<string, string>()
 
+  /**
+   * Timers for silence expiration.
+   */
+  private silenceTimers = new Map<string, unknown>()
+
   constructor(config: AlertManagerConfig, timerFunctions?: TimerFunctions, store?: IAlertStore) {
     super()
     this.config = config
     this.store = store
+    this.timerFns = timerFunctions ?? {
+      setTimeout: (cb, ms) => setTimeout(cb, ms),
+      clearTimeout: (h) => {
+        clearTimeout(h as ReturnType<typeof setTimeout>)
+      }
+    }
     this.escalationTimer = new EscalationTimer(
       config.escalation,
       (event) => {
@@ -198,22 +210,62 @@ export class AlertManager extends EventEmitter {
       await this.store.update(silenced)
     }
 
+    // Start silence expiration timer
+    this.startSilenceExpirationTimer(alertId, duration)
+
     this.emitEvent('silenced', silenced)
 
     return silenced
   }
 
   /**
-   * Silence all active alerts.
+   * Unsilence an alert.
    */
-  silenceAll(): void {
+  async unsilenceAlert(alertId: string): Promise<Alert> {
+    const alert = this.alerts.get(alertId)
+    if (!alert) {
+      throw new Error('Alert not found')
+    }
+
+    // Cancel any pending silence expiration timer
+    this.cancelSilenceExpirationTimer(alertId)
+
+    const unsilenced = this.stateMachine.unsilence(alert)
+    this.alerts.set(alertId, unsilenced)
+
+    if (this.store) {
+      await this.store.update(unsilenced)
+    }
+
+    this.emitEvent('unsilenced', unsilenced)
+
+    return unsilenced
+  }
+
+  /**
+   * Silence all unacknowledged alerts.
+   */
+  async silenceAll(): Promise<void> {
+    const toSilence: Alert[] = []
+
     for (const alert of this.alerts.values()) {
-      if (AlertStateMachine.isUnacknowledged(alert)) {
-        const duration = this.getDefaultSilenceDuration(alert.priority)
-        const until = new Date(Date.now() + duration)
-        const silenced = this.stateMachine.silence(alert, until)
-        this.alerts.set(alert.id, silenced)
+      if (AlertStateMachine.isUnacknowledged(alert) && !alert.silenced) {
+        toSilence.push(alert)
       }
+    }
+
+    for (const alert of toSilence) {
+      const duration = this.getDefaultSilenceDuration(alert.priority)
+      const until = new Date(Date.now() + duration)
+      const silenced = this.stateMachine.silence(alert, until)
+      this.alerts.set(alert.id, silenced)
+
+      if (this.store) {
+        await this.store.update(silenced)
+      }
+
+      this.startSilenceExpirationTimer(alert.id, duration)
+      this.emitEvent('silenced', silenced)
     }
   }
 
@@ -368,11 +420,43 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * Clear the stale flag for an alert.
+   * Called by operators to acknowledge that a stale alert has been reviewed.
+   */
+  async clearStaleFlag(alertId: string): Promise<Alert> {
+    const alert = this.alerts.get(alertId)
+    if (!alert) {
+      throw new Error('Alert not found')
+    }
+
+    const updated: Alert = {
+      ...alert,
+      stale: false
+    }
+
+    this.alerts.set(alertId, updated)
+
+    if (this.store) {
+      await this.store.update(updated)
+    }
+
+    this.emitEvent('updated', updated)
+
+    return updated
+  }
+
+  /**
    * Stop the alert manager and clean up resources.
    */
   stop(): void {
     this.stopped = true
     this.escalationTimer.stop()
+
+    // Cancel all silence expiration timers
+    for (const handle of this.silenceTimers.values()) {
+      this.timerFns.clearTimeout(handle)
+    }
+    this.silenceTimers.clear()
   }
 
   /**
@@ -395,15 +479,36 @@ export class AlertManager extends EventEmitter {
     }
 
     this.alerts.set(alertId, escalated)
+
+    // Persist escalation to store
+    if (this.store) {
+      this.store.update(escalated).catch(() => {
+        // Log error but don't fail - escalation already applied in memory
+      })
+    }
+
     this.emitEvent('escalated', escalated, alert.state)
   }
 
   /**
    * Update an existing alert with new data.
+   * Priority can only be escalated (increased), not reduced.
    */
   private async updateExistingAlert(existing: Alert, params: CreateAlertParams): Promise<Alert> {
+    // Allow priority escalation but not reduction
+    const newPriority =
+      PRIORITY_ORDER[params.priority] > PRIORITY_ORDER[existing.priority]
+        ? params.priority
+        : existing.priority
+
+    // If priority is being escalated, cancel any existing escalation timer
+    if (newPriority !== existing.priority) {
+      this.escalationTimer.cancelTimer(existing.id)
+    }
+
     const updated: Alert = {
       ...existing,
+      priority: newPriority,
       data: params.data,
       lastSourceUpdate: new Date().toISOString(),
       sourceOnline: true
@@ -426,6 +531,9 @@ export class AlertManager extends EventEmitter {
   private async removeAlert(alertId: string, alert: Alert): Promise<void> {
     this.alerts.delete(alertId)
     this.alertIndex.delete(this.getIndexKey(alert.sourceId, alert.message))
+
+    // Cancel any pending silence expiration timer
+    this.cancelSilenceExpirationTimer(alertId)
 
     if (this.store) {
       await this.store.delete(alertId)
@@ -464,5 +572,58 @@ export class AlertManager extends EventEmitter {
     }
 
     this.emit('alert', event)
+  }
+
+  /**
+   * Start a timer to automatically unsilence an alert after duration expires.
+   */
+  private startSilenceExpirationTimer(alertId: string, durationMs: number): void {
+    // Cancel any existing timer for this alert
+    this.cancelSilenceExpirationTimer(alertId)
+
+    const handle = this.timerFns.setTimeout(() => {
+      this.handleSilenceExpiration(alertId)
+    }, durationMs)
+
+    this.silenceTimers.set(alertId, handle)
+  }
+
+  /**
+   * Cancel the silence expiration timer for an alert.
+   */
+  private cancelSilenceExpirationTimer(alertId: string): void {
+    const handle = this.silenceTimers.get(alertId)
+    if (handle !== undefined) {
+      this.timerFns.clearTimeout(handle)
+      this.silenceTimers.delete(alertId)
+    }
+  }
+
+  /**
+   * Handle silence expiration - automatically unsilence the alert.
+   */
+  private handleSilenceExpiration(alertId: string): void {
+    this.silenceTimers.delete(alertId)
+
+    if (this.stopped) {
+      return
+    }
+
+    const alert = this.alerts.get(alertId)
+    if (!alert?.silenced) {
+      return
+    }
+
+    const unsilenced = this.stateMachine.unsilence(alert)
+    this.alerts.set(alertId, unsilenced)
+
+    // Persist to store
+    if (this.store) {
+      this.store.update(unsilenced).catch(() => {
+        // Log error but don't fail - unsilence already applied in memory
+      })
+    }
+
+    this.emitEvent('unsilenced', unsilenced)
   }
 }

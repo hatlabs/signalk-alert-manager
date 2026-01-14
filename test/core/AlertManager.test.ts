@@ -778,10 +778,44 @@ describe('AlertManager', () => {
         message: 'Alert 2'
       })
 
-      manager.silenceAll()
+      await manager.silenceAll()
 
       expect(manager.getAlert(alert1.id)?.silenced).toBe(true)
       expect(manager.getAlert(alert2.id)?.silenced).toBe(true)
+    })
+
+    it('should emit silenced events for each alert', async () => {
+      await manager.raiseAlert({
+        sourceId: 'source-1',
+        priority: 'alarm',
+        message: 'Alert 1'
+      })
+      await manager.raiseAlert({
+        sourceId: 'source-2',
+        priority: 'alarm',
+        message: 'Alert 2'
+      })
+      events = []
+
+      await manager.silenceAll()
+
+      const silencedEvents = events.filter((e) => e.type === 'silenced')
+      expect(silencedEvents).toHaveLength(2)
+    })
+
+    it('should not silence already silenced alerts', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id)
+      events = []
+
+      await manager.silenceAll()
+
+      expect(events.filter((e) => e.type === 'silenced')).toHaveLength(0)
     })
   })
 
@@ -872,6 +906,261 @@ describe('AlertManager', () => {
 
       const indication = manager.getIndicationState()
       expect(indication.priority).toBe('alarm')
+    })
+  })
+
+  describe('unsilenceAlert', () => {
+    it('should remove silenced flag from alert', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id)
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+
+      const unsilenced = await manager.unsilenceAlert(alert.id)
+
+      expect(unsilenced.silenced).toBe(false)
+      expect(unsilenced.silencedUntil).toBeUndefined()
+    })
+
+    it('should emit unsilenced event', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.silenceAlert(alert.id)
+      events = []
+
+      await manager.unsilenceAlert(alert.id)
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('unsilenced')
+    })
+
+    it('should throw for non-existent alert', async () => {
+      await expect(manager.unsilenceAlert('non-existent')).rejects.toThrow('Alert not found')
+    })
+  })
+
+  describe('silence expiration', () => {
+    it('should automatically unsilence alert after duration', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 5000) // 5 second silence
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+
+      fakeTimers.advanceTime(5000)
+
+      expect(manager.getAlert(alert.id)?.silenced).toBe(false)
+    })
+
+    it('should emit unsilenced event on expiration', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 5000)
+      events = []
+
+      fakeTimers.advanceTime(5000)
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('unsilenced')
+    })
+
+    it('should cancel expiration timer when manually unsilenced', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 5000)
+      await manager.unsilenceAlert(alert.id)
+      events = []
+
+      fakeTimers.advanceTime(5000)
+
+      // Should not emit another unsilenced event
+      expect(events).toHaveLength(0)
+    })
+
+    it('should cancel expiration timer when alert is cleared', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 5000)
+      await manager.acknowledgeAlert(alert.id)
+      await manager.clearCondition(alert.id)
+
+      // Should not throw when timer fires for non-existent alert
+      expect(() => {
+        fakeTimers.advanceTime(5000)
+      }).not.toThrow()
+    })
+  })
+
+  describe('clearStaleFlag', () => {
+    it('should clear stale flag on alert', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      manager.markSourceOffline('test-source')
+      expect(manager.getAlert(alert.id)?.stale).toBe(true)
+
+      const updated = await manager.clearStaleFlag(alert.id)
+
+      expect(updated.stale).toBe(false)
+      expect(manager.getAlert(alert.id)?.stale).toBe(false)
+    })
+
+    it('should emit updated event', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      manager.markSourceOffline('test-source')
+      events = []
+
+      await manager.clearStaleFlag(alert.id)
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('updated')
+    })
+
+    it('should throw for non-existent alert', async () => {
+      await expect(manager.clearStaleFlag('non-existent')).rejects.toThrow('Alert not found')
+    })
+  })
+
+  describe('priority escalation on update', () => {
+    it('should allow source to escalate priority', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      const updated = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      expect(updated.id).toBe(alert.id)
+      expect(updated.priority).toBe('alarm')
+    })
+
+    it('should not allow priority reduction', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      const updated = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      expect(updated.id).toBe(alert.id)
+      expect(updated.priority).toBe('alarm') // Stays at alarm
+    })
+
+    it('should cancel escalation timer when priority is escalated by source', async () => {
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      // Escalation timer should be cancelled since priority was manually escalated
+      expect(fakeTimers.getPendingCount()).toBe(0)
+    })
+  })
+
+  describe('escalation persistence', () => {
+    let store: MockAlertStore
+
+    beforeEach(() => {
+      store = new MockAlertStore()
+      manager.stop()
+      manager = new AlertManager(defaultConfig, fakeTimers, store)
+      manager.on('alert', (event: AlertEvent) => events.push(event))
+    })
+
+    it('should persist escalation to store', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test warning'
+      })
+
+      fakeTimers.advanceTime(300 * 1000)
+
+      // Give async store.update a chance to complete
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(store.getStoredAlert(alert.id)?.priority).toBe('alarm')
+    })
+  })
+
+  describe('edge cases', () => {
+    it('should not raise alerts after stop', async () => {
+      manager.stop()
+
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      // Alert is still created in memory but no events are emitted
+      expect(alert).toBeDefined()
+      expect(events.filter((e) => e.type === 'raised')).toHaveLength(0)
+    })
+
+    it('should handle silencing an already silenced alert', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 10000)
+      const firstSilencedUntil = manager.getAlert(alert.id)?.silencedUntil
+
+      await manager.silenceAlert(alert.id, 20000)
+      const secondSilencedUntil = manager.getAlert(alert.id)?.silencedUntil
+
+      // Second silence should update the silencedUntil
+      expect(secondSilencedUntil).not.toBe(firstSilencedUntil)
     })
   })
 })
