@@ -321,21 +321,53 @@ describe('AlertStateMachine', () => {
 
       const result = stateMachine.setCondition(rtn, true)
 
-      expect(result.state).toBe('unacknowledged')
-      expect(result.condition).toBe(true)
+      expect(result.cleared).toBe(false)
+      expect(result.previousState).toBe('rtn-unacknowledged')
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
     })
 
-    it('should not change acknowledged alert when condition reactivates', () => {
-      // Edge case: if an alert is already acknowledged and condition was cleared
-      // then reactivates, it should stay acknowledged
+    it('should clear clearedAt when reactivating an RTN-unacknowledged alert', () => {
+      const alert = makeAlert({ priority: 'alarm' })
+      const rtn = assertAlert(stateMachine.clearCondition(alert).alert)
+      expect(rtn.clearedAt).toBeDefined()
+
+      const result = stateMachine.setCondition(rtn, true)
+
+      expect(result.alert?.clearedAt).toBeUndefined()
+    })
+
+    it('should not change acknowledged alert state when condition reactivates', () => {
+      // Acknowledged alerts stay acknowledged even if condition reactivates
       const alert = makeAlert()
       const acked = assertAlert(stateMachine.acknowledge(alert).alert)
-      const cleared: Alert = { ...acked, condition: false }
 
-      const result = stateMachine.setCondition(cleared, true)
+      const result = stateMachine.setCondition(acked, true)
 
-      expect(result.state).toBe('acknowledged')
-      expect(result.condition).toBe(true)
+      expect(result.cleared).toBe(false)
+      expect(result.alert?.state).toBe('acknowledged')
+      expect(result.alert?.condition).toBe(true)
+    })
+
+    it('should delegate to clearCondition when setting condition to false', () => {
+      const alert = makeAlert({ priority: 'alarm' })
+
+      const result = stateMachine.setCondition(alert, false)
+
+      // Should behave like clearCondition: unacknowledged → rtn-unacknowledged
+      expect(result.cleared).toBe(false)
+      expect(result.alert?.state).toBe('rtn-unacknowledged')
+      expect(result.alert?.condition).toBe(false)
+    })
+
+    it('should auto-clear caution alert when setting condition to false', () => {
+      const alert = makeAlert({ priority: 'caution' })
+
+      const result = stateMachine.setCondition(alert, false)
+
+      // Caution alerts auto-clear
+      expect(result.cleared).toBe(true)
+      expect(result.alert).toBeNull()
     })
   })
 
