@@ -129,7 +129,13 @@ export class AlertManager extends EventEmitter {
       return
     }
 
-    const alerts = await this.store.getAll()
+    let alerts: Alert[]
+    try {
+      alerts = await this.store.getAll()
+    } catch (err) {
+      console.error('Failed to load alerts from store:', err)
+      return
+    }
 
     for (const alert of alerts) {
       // Store in memory
@@ -139,9 +145,11 @@ export class AlertManager extends EventEmitter {
       const indexKey = this.getIndexKey(alert.sourceId, alert.message)
       this.alertIndex.set(indexKey, alert.id)
 
-      // Start escalation timer for unacknowledged warnings
+      // Start escalation timer for unacknowledged warnings (accounting for elapsed time)
       if (alert.state === 'unacknowledged' && alert.priority === 'warning') {
-        this.escalationTimer.startTimer(alert.id, alert.priority)
+        const elapsedMs = Date.now() - new Date(alert.raisedAt).getTime()
+        const remainingMs = this.config.escalation.timeoutSeconds * 1000 - elapsedMs
+        this.escalationTimer.startTimer(alert.id, alert.priority, remainingMs)
       }
 
       // Handle silenced alerts
@@ -155,6 +163,9 @@ export class AlertManager extends EventEmitter {
 
           // Persist the unsilenced state
           await this.store.update(unsilenced)
+
+          // Emit event for consistency with manual unsilence path
+          this.emitEvent('unsilenced', unsilenced)
         } else {
           // Start timer for remaining silence duration
           this.startSilenceExpirationTimer(alert.id, remainingMs)

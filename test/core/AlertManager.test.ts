@@ -1258,6 +1258,77 @@ describe('AlertManager', () => {
       expect(manager.getAlert('warning-1')?.priority).toBe('alarm')
     })
 
+    it('should account for elapsed time when restarting escalation timers', async () => {
+      // Create a warning that was raised 250 seconds ago (50 seconds remaining)
+      const pastRaisedAt = new Date(Date.now() - 250 * 1000).toISOString()
+      const warningAlert = createStoredAlert({
+        id: 'old-warning',
+        priority: 'warning',
+        state: 'unacknowledged',
+        raisedAt: pastRaisedAt
+      })
+      store.prePopulate([warningAlert])
+
+      await manager.loadFromStore()
+
+      // Timer should be set for remaining ~50 seconds, not full 300 seconds
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      // Should NOT escalate after 40 seconds (still 10 seconds remaining)
+      fakeTimers.advanceTime(40 * 1000)
+      expect(manager.getAlert('old-warning')?.priority).toBe('warning')
+
+      // Should escalate after another 20 seconds (total 60 seconds, past remaining 50)
+      fakeTimers.advanceTime(20 * 1000)
+      expect(manager.getAlert('old-warning')?.priority).toBe('alarm')
+    })
+
+    it('should immediately escalate warnings that have exceeded timeout', async () => {
+      // Create a warning that was raised 400 seconds ago (already past 300s timeout)
+      const oldRaisedAt = new Date(Date.now() - 400 * 1000).toISOString()
+      const oldWarning = createStoredAlert({
+        id: 'very-old-warning',
+        priority: 'warning',
+        state: 'unacknowledged',
+        raisedAt: oldRaisedAt
+      })
+      store.prePopulate([oldWarning])
+
+      await manager.loadFromStore()
+
+      // Should have escalated immediately (no pending timer)
+      expect(fakeTimers.getPendingCount()).toBe(0)
+      expect(manager.getAlert('very-old-warning')?.priority).toBe('alarm')
+    })
+
+    it('should not start escalation timers for caution priority', async () => {
+      const cautionAlert = createStoredAlert({
+        id: 'caution-1',
+        priority: 'caution',
+        state: 'unacknowledged'
+      })
+      store.prePopulate([cautionAlert])
+
+      await manager.loadFromStore()
+
+      // Caution alerts don't escalate
+      expect(fakeTimers.getPendingCount()).toBe(0)
+    })
+
+    it('should not start escalation timers for rtn-unacknowledged state', async () => {
+      const rtnWarning = createStoredAlert({
+        id: 'rtn-warning',
+        priority: 'warning',
+        state: 'rtn-unacknowledged'
+      })
+      store.prePopulate([rtnWarning])
+
+      await manager.loadFromStore()
+
+      // RTN alerts have cleared condition, no need to escalate
+      expect(fakeTimers.getPendingCount()).toBe(0)
+    })
+
     it('should not start escalation timers for acknowledged alerts', async () => {
       const acknowledgedWarning = createStoredAlert({
         id: 'warning-1',
@@ -1306,9 +1377,50 @@ describe('AlertManager', () => {
       expect(manager.getAlert('expired-silenced')?.silenced).toBe(false)
     })
 
+    it('should emit unsilenced event for expired silences', async () => {
+      const pastTime = new Date(Date.now() - 1000).toISOString()
+      const expiredSilencedAlert = createStoredAlert({
+        id: 'expired-with-event',
+        silenced: true,
+        silencedUntil: pastTime
+      })
+      store.prePopulate([expiredSilencedAlert])
+
+      await manager.loadFromStore()
+
+      // Should have emitted unsilenced event
+      const unsilencedEvents = events.filter((e) => e.type === 'unsilenced')
+      expect(unsilencedEvents).toHaveLength(1)
+      expect(unsilencedEvents[0].alert.id).toBe('expired-with-event')
+    })
+
+    it('should leave silenced alerts without silencedUntil as silenced', async () => {
+      const silencedWithoutUntil = createStoredAlert({
+        id: 'silenced-no-until',
+        silenced: true
+        // silencedUntil intentionally undefined
+      })
+      store.prePopulate([silencedWithoutUntil])
+
+      await manager.loadFromStore()
+
+      // Should remain silenced (no timer started, no unsilencing)
+      expect(manager.getAlert('silenced-no-until')?.silenced).toBe(true)
+      expect(fakeTimers.getPendingCount()).toBe(0)
+    })
+
     it('should handle empty store gracefully', async () => {
       await manager.loadFromStore()
 
+      expect(manager.getActiveAlertCount()).toBe(0)
+    })
+
+    it('should handle store.getAll() failure gracefully', async () => {
+      store.getAll = () => {
+        return Promise.reject(new Error('SQLite disk I/O error'))
+      }
+
+      await expect(manager.loadFromStore()).resolves.not.toThrow()
       expect(manager.getActiveAlertCount()).toBe(0)
     })
 
