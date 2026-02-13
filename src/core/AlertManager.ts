@@ -144,8 +144,8 @@ export class AlertManager extends EventEmitter {
   async loadFromStore(): Promise<void> {
     // Prune old history entries on startup
     if (this.historyStore && this.config.retentionDays !== undefined) {
-      this.historyStore.prune(this.config.retentionDays).catch(() => {
-        // Fire-and-forget: pruning failure is non-critical
+      this.historyStore.prune(this.config.retentionDays).catch((err: unknown) => {
+        console.warn('History pruning failed:', err)
       })
     }
 
@@ -187,6 +187,8 @@ export class AlertManager extends EventEmitter {
 
           // Persist the unsilenced state
           await this.store.update(unsilenced)
+
+          this.logHistory('unsilence', unsilenced)
 
           // Emit event for consistency with manual unsilence path
           this.emitEvent('unsilenced', unsilenced)
@@ -258,7 +260,8 @@ export class AlertManager extends EventEmitter {
       await this.removeAlert(alertId, alert)
       this.logHistory('clear', alert, {
         userId,
-        previousState: result.previousState
+        previousState: result.previousState,
+        newState: 'cleared'
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -361,6 +364,9 @@ export class AlertManager extends EventEmitter {
       }
 
       this.startSilenceExpirationTimer(alert.id, duration)
+      this.logHistory('silence', silenced, {
+        details: { silencedUntil: silenced.silencedUntil }
+      })
       this.emitEvent('silenced', silenced)
     }
   }
@@ -381,7 +387,10 @@ export class AlertManager extends EventEmitter {
 
     if (result.cleared) {
       await this.removeAlert(alertId, alert)
-      this.logHistory('clear', alert, { previousState: result.previousState })
+      this.logHistory('clear', alert, {
+        previousState: result.previousState,
+        newState: 'cleared'
+      })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
       this.alerts.set(alertId, result.alert)
@@ -628,6 +637,13 @@ export class AlertManager extends EventEmitter {
       await this.store.update(updated)
     }
 
+    if (newPriority !== existing.priority) {
+      this.logHistory('escalate', updated, {
+        previousPriority: existing.priority,
+        newPriority
+      })
+    }
+
     this.emitEvent('updated', updated)
 
     return updated
@@ -692,8 +708,8 @@ export class AlertManager extends EventEmitter {
         newPriority: extra?.newPriority,
         details: extra?.details
       })
-      .catch(() => {
-        // Fire-and-forget: history logging failure must not affect alert operations
+      .catch((err: unknown) => {
+        console.warn('History logging failed:', err)
       })
   }
 

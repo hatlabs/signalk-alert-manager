@@ -196,19 +196,22 @@ export interface AlertFilter {
  * Query parameters for retrieving alert history.
  */
 export interface HistoryQuery {
-  /** Start of date range (ISO timestamp) */
+  /** Start of date range (UTC ISO 8601 timestamp ending in Z) */
   from?: string
 
-  /** End of date range (ISO timestamp) */
+  /** End of date range (UTC ISO 8601 timestamp ending in Z) */
   to?: string
 
   /** Filter by specific alert ID */
   alertId?: string
 
+  /** Filter by event type(s) */
+  eventType?: HistoryEventType | HistoryEventType[]
+
   /** Maximum number of entries to return */
   limit?: number
 
-  /** Number of entries to skip (for pagination) */
+  /** Number of entries to skip (for pagination, requires limit) */
   offset?: number
 }
 

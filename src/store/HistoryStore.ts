@@ -6,9 +6,12 @@
  *
  * Opens its own connection to the same database file as AlertStore.
  * WAL mode allows concurrent read/write access across connections.
+ *
+ * All timestamps are stored and compared as UTC ISO 8601 strings
+ * (ending in 'Z'), which sort lexicographically in chronological order.
  */
 
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import * as fs from 'fs'
 import * as path from 'path'
 import type {
@@ -36,6 +39,8 @@ interface HistoryRow {
 export class HistoryStore implements IHistoryStore {
   private dbPath: string
   private db: DatabaseSync | null = null
+  private insertStmt: StatementSync | null = null
+  private pruneStmt: StatementSync | null = null
 
   constructor(dbPath: string) {
     this.dbPath = dbPath
@@ -76,7 +81,17 @@ export class HistoryStore implements IHistoryStore {
       db.exec(`
         CREATE INDEX IF NOT EXISTS idx_history_alert_id ON history(alert_id);
         CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_history_event_type ON history(event_type);
       `)
+
+      // Cache prepared statements for fixed queries
+      this.insertStmt = db.prepare(`
+        INSERT INTO history (
+          id, alert_id, event_type, timestamp, user_id,
+          previous_state, new_state, previous_priority, new_priority, details
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      this.pruneStmt = db.prepare('DELETE FROM history WHERE timestamp < ?')
 
       return Promise.resolve()
     } catch (error) {
@@ -85,6 +100,8 @@ export class HistoryStore implements IHistoryStore {
   }
 
   close(): Promise<void> {
+    this.insertStmt = null
+    this.pruneStmt = null
     if (this.db) {
       this.db.close()
       this.db = null
@@ -94,17 +111,10 @@ export class HistoryStore implements IHistoryStore {
 
   log(entry: Omit<HistoryEntry, 'id'>): Promise<void> {
     try {
-      const db = this.getDb()
+      this.getDb() // Ensure initialized
       const id = crypto.randomUUID()
 
-      const stmt = db.prepare(`
-        INSERT INTO history (
-          id, alert_id, event_type, timestamp, user_id,
-          previous_state, new_state, previous_priority, new_priority, details
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-
-      stmt.run(
+      this.getInsertStmt().run(
         id,
         entry.alertId,
         entry.eventType,
@@ -134,6 +144,12 @@ export class HistoryStore implements IHistoryStore {
         whereSql += ' AND alert_id = ?'
         params.push(query.alertId)
       }
+      if (query.eventType) {
+        const types = Array.isArray(query.eventType) ? query.eventType : [query.eventType]
+        const placeholders = types.map(() => '?').join(', ')
+        whereSql += ` AND event_type IN (${placeholders})`
+        params.push(...types)
+      }
       if (query.from) {
         whereSql += ' AND timestamp >= ?'
         params.push(query.from)
@@ -155,10 +171,11 @@ export class HistoryStore implements IHistoryStore {
       if (query.limit !== undefined) {
         dataSql += ' LIMIT ?'
         dataParams.push(query.limit)
-      }
-      if (query.offset !== undefined) {
-        dataSql += ' OFFSET ?'
-        dataParams.push(query.offset)
+        // Only apply offset when limit is present (OFFSET without LIMIT is undefined in standard SQL)
+        if (query.offset !== undefined) {
+          dataSql += ' OFFSET ?'
+          dataParams.push(query.offset)
+        }
       }
 
       const dataStmt = db.prepare(dataSql)
@@ -174,11 +191,15 @@ export class HistoryStore implements IHistoryStore {
 
   prune(olderThanDays: number): Promise<number> {
     try {
-      const db = this.getDb()
-      const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+      if (olderThanDays < 1) {
+        return Promise.reject(
+          new Error(`retentionDays must be >= 1 (got ${String(olderThanDays)})`)
+        )
+      }
 
-      const stmt = db.prepare('DELETE FROM history WHERE timestamp < ?')
-      const result = stmt.run(cutoff)
+      this.getDb() // Ensure initialized
+      const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+      const result = this.getPruneStmt().run(cutoff)
 
       return Promise.resolve(Number(result.changes))
     } catch (error) {
@@ -191,6 +212,20 @@ export class HistoryStore implements IHistoryStore {
       throw new Error('HistoryStore not initialized. Call initialize() first.')
     }
     return this.db
+  }
+
+  private getInsertStmt(): StatementSync {
+    if (!this.insertStmt) {
+      throw new Error('HistoryStore not initialized. Call initialize() first.')
+    }
+    return this.insertStmt
+  }
+
+  private getPruneStmt(): StatementSync {
+    if (!this.pruneStmt) {
+      throw new Error('HistoryStore not initialized. Call initialize() first.')
+    }
+    return this.pruneStmt
   }
 
   private rowToHistoryEntry(row: HistoryRow): HistoryEntry {

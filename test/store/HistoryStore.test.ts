@@ -214,6 +214,39 @@ describe('HistoryStore', () => {
       expect(result.entries).toHaveLength(1)
       expect(result.total).toBe(3)
     })
+
+    it('should filter by single eventType', async () => {
+      await store.log(createTestEntry({ eventType: 'raise' }))
+      await store.log(createTestEntry({ eventType: 'acknowledge' }))
+      await store.log(createTestEntry({ eventType: 'escalate' }))
+
+      const result = await store.query({ eventType: 'escalate' })
+      expect(result.entries).toHaveLength(1)
+      expect(result.entries[0].eventType).toBe('escalate')
+      expect(result.total).toBe(1)
+    })
+
+    it('should filter by multiple eventTypes', async () => {
+      await store.log(createTestEntry({ eventType: 'raise' }))
+      await store.log(createTestEntry({ eventType: 'acknowledge' }))
+      await store.log(createTestEntry({ eventType: 'escalate' }))
+      await store.log(createTestEntry({ eventType: 'clear' }))
+
+      const result = await store.query({ eventType: ['raise', 'clear'] })
+      expect(result.entries).toHaveLength(2)
+      expect(result.total).toBe(2)
+    })
+
+    it('should ignore offset when limit is not set', async () => {
+      for (let i = 0; i < 5; i++) {
+        await store.log(createTestEntry({ alertId: `a${String(i)}` }))
+      }
+
+      // offset without limit should return all entries (offset ignored)
+      const result = await store.query({ offset: 2 })
+      expect(result.entries).toHaveLength(5)
+      expect(result.total).toBe(5)
+    })
   })
 
   describe('prune', () => {
@@ -250,6 +283,15 @@ describe('HistoryStore', () => {
     it('should return 0 when nothing to prune', async () => {
       const deleted = await store.prune(90)
       expect(deleted).toBe(0)
+    })
+
+    it('should reject olderThanDays of 0', async () => {
+      await store.log(createTestEntry())
+      await expect(store.prune(0)).rejects.toThrow('retentionDays must be >= 1')
+    })
+
+    it('should reject negative olderThanDays', async () => {
+      await expect(store.prune(-5)).rejects.toThrow('retentionDays must be >= 1')
     })
   })
 

@@ -1561,7 +1561,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].newState).toBe('acknowledged')
     })
 
-    it('should log clear event when RTN alert is acknowledged', async () => {
+    it('should log clear event with newState cleared when RTN alert is acknowledged', async () => {
       const alert = await manager.raiseAlert({
         sourceId: 'test-source',
         priority: 'alarm',
@@ -1574,6 +1574,7 @@ describe('AlertManager', () => {
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
+      expect(historyStore.entries[0].newState).toBe('cleared')
     })
 
     it('should log silence event', async () => {
@@ -1606,7 +1607,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].eventType).toBe('unsilence')
     })
 
-    it('should log clear event on clearCondition (when alert is removed)', async () => {
+    it('should log clear event with newState cleared on clearCondition (when alert is removed)', async () => {
       const alert = await manager.raiseAlert({
         sourceId: 'test-source',
         priority: 'alarm',
@@ -1619,6 +1620,7 @@ describe('AlertManager', () => {
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
+      expect(historyStore.entries[0].newState).toBe('cleared')
     })
 
     it('should log clear event on clearCondition (RTN transition)', async () => {
@@ -1670,6 +1672,80 @@ describe('AlertManager', () => {
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('unsilence')
+    })
+
+    it('should log silence events for each alert in silenceAll', async () => {
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Alert 1'
+      })
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Alert 2'
+      })
+      historyStore.entries = []
+
+      await manager.silenceAll()
+
+      const silenceEntries = historyStore.entries.filter((e) => e.eventType === 'silence')
+      expect(silenceEntries).toHaveLength(2)
+      expect(silenceEntries.every((e) => e.details?.silencedUntil)).toBe(true)
+    })
+
+    it('should log escalate event when re-raising with higher priority', async () => {
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+      historyStore.entries = []
+
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      const escalateEntries = historyStore.entries.filter((e) => e.eventType === 'escalate')
+      expect(escalateEntries).toHaveLength(1)
+      expect(escalateEntries[0].previousPriority).toBe('warning')
+      expect(escalateEntries[0].newPriority).toBe('alarm')
+    })
+
+    it('should log unsilence event for expired silence on loadFromStore', async () => {
+      // Seed a silenced alert with expired silencedUntil directly into the store
+      const silencedAlert: Alert = {
+        id: 'expired-silence-1',
+        sourceId: 'test-source',
+        priority: 'alarm',
+        state: 'unacknowledged',
+        condition: true,
+        latching: false,
+        silenced: true,
+        silencedUntil: new Date(Date.now() - 1000).toISOString(),
+        message: 'Test alert',
+        raisedAt: new Date(Date.now() - 60000).toISOString(),
+        sourceOnline: true,
+        lastSourceUpdate: new Date().toISOString(),
+        stale: false
+      }
+      await store.save(silencedAlert)
+
+      // Create a new manager and load from store
+      const newHistoryStore = new MockHistoryStore()
+      const newManager = new AlertManager(
+        { ...defaultConfig, retentionDays: 90 },
+        fakeTimers,
+        store,
+        newHistoryStore
+      )
+      await newManager.loadFromStore()
+
+      const unsilenceEntries = newHistoryStore.entries.filter((e) => e.eventType === 'unsilence')
+      expect(unsilenceEntries).toHaveLength(1)
+      newManager.stop()
     })
 
     it('should not affect alert operations when history logging fails', async () => {
