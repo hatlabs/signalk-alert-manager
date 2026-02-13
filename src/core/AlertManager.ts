@@ -121,6 +121,60 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * Load alerts from the store into memory.
+   * Call this after construction to restore persisted alerts.
+   */
+  async loadFromStore(): Promise<void> {
+    if (!this.store) {
+      return
+    }
+
+    let alerts: Alert[]
+    try {
+      alerts = await this.store.getAll()
+    } catch (err) {
+      console.error('Failed to load alerts from store:', err)
+      return
+    }
+
+    for (const alert of alerts) {
+      // Store in memory
+      this.alerts.set(alert.id, alert)
+
+      // Rebuild alert index for duplicate detection
+      const indexKey = this.getIndexKey(alert.sourceId, alert.message)
+      this.alertIndex.set(indexKey, alert.id)
+
+      // Start escalation timer for unacknowledged warnings (accounting for elapsed time)
+      if (alert.state === 'unacknowledged' && alert.priority === 'warning') {
+        const elapsedMs = Date.now() - new Date(alert.raisedAt).getTime()
+        const remainingMs = this.config.escalation.timeoutSeconds * 1000 - elapsedMs
+        this.escalationTimer.startTimer(alert.id, alert.priority, remainingMs)
+      }
+
+      // Handle silenced alerts
+      if (alert.silenced && alert.silencedUntil) {
+        const remainingMs = new Date(alert.silencedUntil).getTime() - Date.now()
+
+        if (remainingMs <= 0) {
+          // Silence has expired - unsilence immediately
+          const unsilenced = this.stateMachine.unsilence(alert)
+          this.alerts.set(alert.id, unsilenced)
+
+          // Persist the unsilenced state
+          await this.store.update(unsilenced)
+
+          // Emit event for consistency with manual unsilence path
+          this.emitEvent('unsilenced', unsilenced)
+        } else {
+          // Start timer for remaining silence duration
+          this.startSilenceExpirationTimer(alert.id, remainingMs)
+        }
+      }
+    }
+  }
+
+  /**
    * Raise a new alert or update an existing one.
    *
    * If an alert from the same source with the same message already exists,

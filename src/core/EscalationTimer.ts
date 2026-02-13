@@ -88,8 +88,12 @@ export class EscalationTimer {
   /**
    * Start tracking an alert for potential escalation.
    * Only starts a timer for warning priority alerts.
+   *
+   * @param alertId - The alert ID to track
+   * @param priority - The alert priority (only 'warning' will start a timer)
+   * @param remainingMs - Optional remaining time in ms (uses config timeout if not specified)
    */
-  startTimer(alertId: string, priority: AlertPriority): void {
+  startTimer(alertId: string, priority: AlertPriority, remainingMs?: number): void {
     // Don't start timers if stopped
     if (this.stopped) {
       return
@@ -110,10 +114,19 @@ export class EscalationTimer {
       return
     }
 
+    // Calculate timeout - use provided remaining time or full config timeout
+    const timeoutMs = remainingMs ?? this.config.timeoutSeconds * 1000
+
+    // If remaining time has already elapsed, escalate immediately
+    if (timeoutMs <= 0) {
+      this.handleEscalation(alertId)
+      return
+    }
+
     // Create the timer
     const handle = this.timerFns.setTimeout(() => {
       this.handleEscalation(alertId)
-    }, this.config.timeoutSeconds * 1000)
+    }, timeoutMs)
 
     this.activeTimers.set(alertId, handle)
   }
