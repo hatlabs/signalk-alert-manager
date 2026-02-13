@@ -316,6 +316,20 @@ export interface PluginConfig {
 // =============================================================================
 
 /**
+ * Persistence abstraction interface for alert history.
+ *
+ * Implementations provide an append-only audit log of alert lifecycle
+ * events for compliance and debugging purposes.
+ */
+export interface IHistoryStore {
+  initialize(): Promise<void>
+  close(): Promise<void>
+  log(entry: Omit<HistoryEntry, 'id'>): Promise<void>
+  query(query: HistoryQuery): Promise<{ entries: HistoryEntry[]; total: number }>
+  prune(olderThanDays: number): Promise<number>
+}
+
+/**
  * Persistence abstraction interface for alert storage.
  *
  * Implementations of this interface provide persistent storage for alerts,
