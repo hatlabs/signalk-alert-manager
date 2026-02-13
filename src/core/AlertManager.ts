@@ -8,7 +8,15 @@
  */
 
 import { EventEmitter } from 'events'
-import type { Alert, AlertFilter, AlertPriority, IAlertStore, IndicationState } from '../types.js'
+import type {
+  Alert,
+  AlertFilter,
+  AlertPriority,
+  HistoryEventType,
+  IAlertStore,
+  IHistoryStore,
+  IndicationState
+} from '../types.js'
 import {
   AlertStateMachine,
   createAlert,
@@ -39,6 +47,8 @@ export interface AlertManagerConfig {
     /** Seconds before marking alert as stale if source stops updating */
     markStaleAfterSeconds: number
   }
+  /** Days to retain alert history (used for pruning on startup) */
+  retentionDays?: number
 }
 
 /**
@@ -88,6 +98,7 @@ export class AlertManager extends EventEmitter {
   private stateMachine = new AlertStateMachine()
   private escalationTimer: EscalationTimer
   private store?: IAlertStore
+  private historyStore?: IHistoryStore
   private stopped = false
   private timerFns: TimerFunctions
 
@@ -101,10 +112,16 @@ export class AlertManager extends EventEmitter {
    */
   private silenceTimers = new Map<string, unknown>()
 
-  constructor(config: AlertManagerConfig, timerFunctions?: TimerFunctions, store?: IAlertStore) {
+  constructor(
+    config: AlertManagerConfig,
+    timerFunctions?: TimerFunctions,
+    store?: IAlertStore,
+    historyStore?: IHistoryStore
+  ) {
     super()
     this.config = config
     this.store = store
+    this.historyStore = historyStore
     this.timerFns = timerFunctions ?? {
       setTimeout: (cb, ms) => setTimeout(cb, ms),
       clearTimeout: (h) => {
@@ -125,6 +142,13 @@ export class AlertManager extends EventEmitter {
    * Call this after construction to restore persisted alerts.
    */
   async loadFromStore(): Promise<void> {
+    // Prune old history entries on startup
+    if (this.historyStore && this.config.retentionDays !== undefined) {
+      this.historyStore.prune(this.config.retentionDays).catch(() => {
+        // Fire-and-forget: pruning failure is non-critical
+      })
+    }
+
     if (!this.store) {
       return
     }
@@ -207,6 +231,9 @@ export class AlertManager extends EventEmitter {
     // Start escalation timer for warnings
     this.escalationTimer.startTimer(alert.id, alert.priority)
 
+    // Log history
+    this.logHistory('raise', alert, { newState: alert.state })
+
     // Emit event
     this.emitEvent('raised', alert)
 
@@ -229,12 +256,21 @@ export class AlertManager extends EventEmitter {
 
     if (result.cleared) {
       await this.removeAlert(alertId, alert)
+      this.logHistory('clear', alert, {
+        userId,
+        previousState: result.previousState
+      })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
       this.alerts.set(alertId, result.alert)
       if (this.store) {
         await this.store.update(result.alert)
       }
+      this.logHistory('acknowledge', result.alert, {
+        userId,
+        previousState: result.previousState,
+        newState: result.alert.state
+      })
       this.emitEvent('acknowledged', result.alert, result.previousState)
     }
 
@@ -267,6 +303,10 @@ export class AlertManager extends EventEmitter {
     // Start silence expiration timer
     this.startSilenceExpirationTimer(alertId, duration)
 
+    this.logHistory('silence', silenced, {
+      details: { silencedUntil: silenced.silencedUntil }
+    })
+
     this.emitEvent('silenced', silenced)
 
     return silenced
@@ -290,6 +330,8 @@ export class AlertManager extends EventEmitter {
     if (this.store) {
       await this.store.update(unsilenced)
     }
+
+    this.logHistory('unsilence', unsilenced)
 
     this.emitEvent('unsilenced', unsilenced)
 
@@ -339,12 +381,17 @@ export class AlertManager extends EventEmitter {
 
     if (result.cleared) {
       await this.removeAlert(alertId, alert)
+      this.logHistory('clear', alert, { previousState: result.previousState })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
       this.alerts.set(alertId, result.alert)
       if (this.store) {
         await this.store.update(result.alert)
       }
+      this.logHistory('clear', result.alert, {
+        previousState: result.previousState,
+        newState: result.alert.state
+      })
       this.emitEvent('updated', result.alert, result.previousState)
     }
 
@@ -526,6 +573,8 @@ export class AlertManager extends EventEmitter {
       return
     }
 
+    const previousPriority = alert.priority
+
     // Escalate from warning to alarm
     const escalated: Alert = {
       ...alert,
@@ -540,6 +589,11 @@ export class AlertManager extends EventEmitter {
         // Log error but don't fail - escalation already applied in memory
       })
     }
+
+    this.logHistory('escalate', escalated, {
+      previousPriority,
+      newPriority: 'alarm'
+    })
 
     this.emitEvent('escalated', escalated, alert.state)
   }
@@ -612,6 +666,38 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * Log a history event (fire-and-forget).
+   */
+  private logHistory(
+    eventType: HistoryEventType,
+    alert: Alert,
+    extra?: {
+      userId?: string
+      previousState?: string
+      newState?: string
+      previousPriority?: AlertPriority
+      newPriority?: AlertPriority
+      details?: Record<string, unknown>
+    }
+  ): void {
+    this.historyStore
+      ?.log({
+        alertId: alert.id,
+        eventType,
+        timestamp: new Date().toISOString(),
+        userId: extra?.userId,
+        previousState: extra?.previousState as Alert['state'],
+        newState: extra?.newState as Alert['state'],
+        previousPriority: extra?.previousPriority,
+        newPriority: extra?.newPriority,
+        details: extra?.details
+      })
+      .catch(() => {
+        // Fire-and-forget: history logging failure must not affect alert operations
+      })
+  }
+
+  /**
    * Emit an alert event.
    */
   private emitEvent(type: AlertEventType, alert: Alert, previousState?: string): void {
@@ -677,6 +763,8 @@ export class AlertManager extends EventEmitter {
         // Log error but don't fail - unsilence already applied in memory
       })
     }
+
+    this.logHistory('unsilence', unsilenced)
 
     this.emitEvent('unsilenced', unsilenced)
   }
