@@ -5,7 +5,14 @@ import {
   type AlertEvent
 } from '../../src/core/AlertManager.js'
 import { FakeTimerFunctions } from '../helpers/FakeTimerFunctions.js'
-import type { Alert, IAlertStore, AlertFilter } from '../../src/types.js'
+import type {
+  Alert,
+  IAlertStore,
+  IHistoryStore,
+  AlertFilter,
+  HistoryEntry,
+  HistoryQuery
+} from '../../src/types.js'
 
 /**
  * In-memory mock store for testing persistence.
@@ -1475,6 +1482,230 @@ describe('AlertManager', () => {
       // Alert should be restored
       expect(manager.getActiveAlertCount()).toBe(1)
       expect(manager.getAlert(alert.id)?.message).toBe('Persistent alert')
+    })
+  })
+
+  describe('history logging', () => {
+    /**
+     * In-memory mock history store that records log() calls.
+     */
+    class MockHistoryStore implements IHistoryStore {
+      entries: Omit<HistoryEntry, 'id'>[] = []
+      pruneCalledWith?: number
+      shouldFail = false
+
+      initialize(): Promise<void> {
+        return Promise.resolve()
+      }
+      close(): Promise<void> {
+        return Promise.resolve()
+      }
+      log(entry: Omit<HistoryEntry, 'id'>): Promise<void> {
+        if (this.shouldFail) {
+          return Promise.reject(new Error('History store failure'))
+        }
+        this.entries.push(entry)
+        return Promise.resolve()
+      }
+      query(_query: HistoryQuery): Promise<{ entries: HistoryEntry[]; total: number }> {
+        return Promise.resolve({ entries: [], total: 0 })
+      }
+      prune(olderThanDays: number): Promise<number> {
+        this.pruneCalledWith = olderThanDays
+        return Promise.resolve(0)
+      }
+    }
+
+    let historyStore: MockHistoryStore
+    let store: MockAlertStore
+
+    beforeEach(() => {
+      historyStore = new MockHistoryStore()
+      store = new MockAlertStore()
+      manager.stop()
+      manager = new AlertManager(
+        { ...defaultConfig, retentionDays: 90 },
+        fakeTimers,
+        store,
+        historyStore
+      )
+      manager.on('alert', (event: AlertEvent) => events.push(event))
+    })
+
+    it('should log raise event', async () => {
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('raise')
+      expect(historyStore.entries[0].newState).toBe('unacknowledged')
+    })
+
+    it('should log acknowledge event', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      historyStore.entries = []
+
+      await manager.acknowledgeAlert(alert.id, 'user-1')
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('acknowledge')
+      expect(historyStore.entries[0].userId).toBe('user-1')
+      expect(historyStore.entries[0].previousState).toBe('unacknowledged')
+      expect(historyStore.entries[0].newState).toBe('acknowledged')
+    })
+
+    it('should log clear event when RTN alert is acknowledged', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.clearCondition(alert.id)
+      historyStore.entries = []
+
+      await manager.acknowledgeAlert(alert.id)
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('clear')
+    })
+
+    it('should log silence event', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      historyStore.entries = []
+
+      await manager.silenceAlert(alert.id, 30000)
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('silence')
+      expect(historyStore.entries[0].details).toHaveProperty('silencedUntil')
+    })
+
+    it('should log unsilence event', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.silenceAlert(alert.id, 30000)
+      historyStore.entries = []
+
+      await manager.unsilenceAlert(alert.id)
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('unsilence')
+    })
+
+    it('should log clear event on clearCondition (when alert is removed)', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.acknowledgeAlert(alert.id)
+      historyStore.entries = []
+
+      await manager.clearCondition(alert.id)
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('clear')
+    })
+
+    it('should log clear event on clearCondition (RTN transition)', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      historyStore.entries = []
+
+      await manager.clearCondition(alert.id)
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('clear')
+      expect(historyStore.entries[0].newState).toBe('rtn-unacknowledged')
+    })
+
+    it('should log escalate event', async () => {
+      await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'warning',
+        message: 'Test warning'
+      })
+      historyStore.entries = []
+
+      fakeTimers.advanceTime(300 * 1000)
+
+      // Give fire-and-forget a chance to resolve
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('escalate')
+      expect(historyStore.entries[0].previousPriority).toBe('warning')
+      expect(historyStore.entries[0].newPriority).toBe('alarm')
+    })
+
+    it('should log unsilence event on silence expiration', async () => {
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.silenceAlert(alert.id, 5000)
+      historyStore.entries = []
+
+      fakeTimers.advanceTime(5000)
+
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(historyStore.entries).toHaveLength(1)
+      expect(historyStore.entries[0].eventType).toBe('unsilence')
+    })
+
+    it('should not affect alert operations when history logging fails', async () => {
+      historyStore.shouldFail = true
+
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      // Alert should still be created despite history failure
+      expect(manager.getAlert(alert.id)).toBeDefined()
+    })
+
+    it('should prune history on loadFromStore', async () => {
+      await manager.loadFromStore()
+
+      // Give fire-and-forget a chance to resolve
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(historyStore.pruneCalledWith).toBe(90)
+    })
+
+    it('should work without history store (no errors)', async () => {
+      manager.stop()
+      manager = new AlertManager(defaultConfig, fakeTimers, store)
+      manager.on('alert', (event: AlertEvent) => events.push(event))
+
+      const alert = await manager.raiseAlert({
+        sourceId: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      expect(manager.getAlert(alert.id)).toBeDefined()
     })
   })
 })
