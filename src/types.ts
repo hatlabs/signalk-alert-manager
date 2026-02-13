@@ -196,19 +196,22 @@ export interface AlertFilter {
  * Query parameters for retrieving alert history.
  */
 export interface HistoryQuery {
-  /** Start of date range (ISO timestamp) */
+  /** Start of date range (UTC ISO 8601 timestamp ending in Z) */
   from?: string
 
-  /** End of date range (ISO timestamp) */
+  /** End of date range (UTC ISO 8601 timestamp ending in Z) */
   to?: string
 
   /** Filter by specific alert ID */
   alertId?: string
 
+  /** Filter by event type(s) */
+  eventType?: HistoryEventType | HistoryEventType[]
+
   /** Maximum number of entries to return */
   limit?: number
 
-  /** Number of entries to skip (for pagination) */
+  /** Number of entries to skip (for pagination, requires limit) */
   offset?: number
 }
 
@@ -314,6 +317,20 @@ export interface PluginConfig {
 // =============================================================================
 // Interface Types
 // =============================================================================
+
+/**
+ * Persistence abstraction interface for alert history.
+ *
+ * Implementations provide an append-only audit log of alert lifecycle
+ * events for compliance and debugging purposes.
+ */
+export interface IHistoryStore {
+  initialize(): Promise<void>
+  close(): Promise<void>
+  log(entry: Omit<HistoryEntry, 'id'>): Promise<void>
+  query(query: HistoryQuery): Promise<{ entries: HistoryEntry[]; total: number }>
+  prune(olderThanDays: number): Promise<number>
+}
 
 /**
  * Persistence abstraction interface for alert storage.
