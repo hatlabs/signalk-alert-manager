@@ -315,6 +315,47 @@ export interface PluginConfig {
 }
 
 // =============================================================================
+// Plugin API Types
+// =============================================================================
+
+/**
+ * Result of a state transition, as returned by the plugin API.
+ */
+export interface AlertTransitionResult {
+  /** The updated alert, or null if the alert was cleared */
+  alert: Alert | null
+  /** Whether the alert was cleared (removed from active alerts) */
+  cleared: boolean
+  /** The state before the transition */
+  previousState: AlertState
+}
+
+/**
+ * Public API exposed on app.alertManager for other Signal K plugins.
+ */
+export interface AlertManagerAPI {
+  raiseAlert(params: RaiseAlertRequest & { sourceId: string }): Promise<Alert>
+  clearCondition(alertId: string): Promise<AlertTransitionResult>
+  acknowledgeAlert(alertId: string, userId?: string): Promise<AlertTransitionResult>
+  silenceAlert(alertId: string, durationMs?: number): Promise<Alert>
+  silenceAll(): Promise<void>
+  getAlerts(filter?: AlertFilter): Alert[]
+  getAlert(id: string): Alert | null
+  getIndicationState(): IndicationState
+  registerAlertType(definition: AlertDefinition): void
+}
+
+// =============================================================================
+// Module Augmentation
+// =============================================================================
+
+declare module '@signalk/server-api' {
+  interface ServerAPI {
+    alertManager?: AlertManagerAPI
+  }
+}
+
+// =============================================================================
 // Interface Types
 // =============================================================================
 
