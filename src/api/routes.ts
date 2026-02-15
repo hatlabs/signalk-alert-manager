@@ -17,6 +17,12 @@ import type {
   IHistoryStore
 } from '../types.js'
 
+/** SK server auth middleware adds these properties to the request. */
+interface SKPrincipal {
+  identifier: string
+  permissions: string
+}
+
 const VALID_PRIORITIES: AlertPriority[] = ['emergency', 'alarm', 'warning', 'caution']
 const VALID_STATES: AlertState[] = ['unacknowledged', 'acknowledged', 'rtn-unacknowledged']
 const VALID_EVENT_TYPES: HistoryEventType[] = [
@@ -38,6 +44,11 @@ export interface RouteDependencies {
 /**
  * Register all REST API routes on the given router.
  *
+ * Authentication is handled by the Signal K server's middleware, which
+ * applies adminAuthenticationMiddleware to all `/plugins` routes before
+ * they reach these handlers. Unauthenticated requests receive 401 from
+ * the server layer and never reach this code.
+ *
  * Static paths (/alerts/indication, /alerts/history, /alerts/silence-all)
  * are registered before parametric paths (/alerts/:id) to avoid
  * Express matching issues.
@@ -56,9 +67,8 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
   })
 
   router.get('/alerts/history', (req: Request, res: Response) => {
-    const manager = deps.getAlertManager()
     const historyStore = deps.getHistoryStore()
-    if (!manager || !historyStore) {
+    if (!historyStore) {
       res.status(503).json({ error: 'Alert manager not ready' })
       return
     }
@@ -81,6 +91,16 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
         res.status(400).json({ error: 'offset must be a non-negative integer' })
         return
       }
+    }
+
+    // Validate from/to as parseable dates
+    if (typeof from === 'string' && isNaN(Date.parse(from))) {
+      res.status(400).json({ error: 'from must be a valid ISO 8601 date' })
+      return
+    }
+    if (typeof to === 'string' && isNaN(Date.parse(to))) {
+      res.status(400).json({ error: 'to must be a valid ISO 8601 date' })
+      return
     }
 
     // Validate eventType
@@ -108,9 +128,8 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       .then((result) => {
         res.json(result)
       })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+      .catch(() => {
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 
@@ -126,9 +145,8 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       .then(() => {
         res.json({ ok: true })
       })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+      .catch(() => {
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 
@@ -170,6 +188,10 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
     }
 
     if (typeof req.query.stale === 'string') {
+      if (req.query.stale !== 'true' && req.query.stale !== 'false') {
+        res.status(400).json({ error: 'stale must be "true" or "false"' })
+        return
+      }
       filter.stale = req.query.stale === 'true'
     }
 
@@ -225,7 +247,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
         message: body.message,
         category: typeof body.category === 'string' ? body.category : undefined,
         data:
-          body.data && typeof body.data === 'object'
+          body.data && typeof body.data === 'object' && !Array.isArray(body.data)
             ? (body.data as Record<string, unknown>)
             : undefined,
         latching: typeof body.latching === 'boolean' ? body.latching : undefined
@@ -233,9 +255,8 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       .then((alert) => {
         res.status(201).json(alert)
       })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+      .catch(() => {
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 
@@ -264,8 +285,10 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       return
     }
 
+    const userId = (req as Request & { skPrincipal?: SKPrincipal }).skPrincipal?.identifier
+
     manager
-      .acknowledgeAlert(String(req.params.id))
+      .acknowledgeAlert(String(req.params.id), userId)
       .then((result) => {
         res.json({
           alert: result.alert,
@@ -278,8 +301,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
           res.status(404).json({ error: 'Alert not found' })
           return
         }
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 
@@ -294,8 +316,12 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
 
     let durationMs: number | undefined
     if (body?.duration !== undefined) {
-      if (typeof body.duration !== 'number' || body.duration <= 0) {
-        res.status(400).json({ error: 'duration must be a positive number (seconds)' })
+      if (
+        typeof body.duration !== 'number' ||
+        !Number.isFinite(body.duration) ||
+        body.duration <= 0
+      ) {
+        res.status(400).json({ error: 'duration must be a finite positive number (seconds)' })
         return
       }
       durationMs = body.duration * 1000
@@ -311,8 +337,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
           res.status(404).json({ error: 'Alert not found' })
           return
         }
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 
@@ -356,8 +381,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
           res.status(404).json({ error: 'Alert not found' })
           return
         }
-        const message = err instanceof Error ? err.message : String(err)
-        res.status(500).json({ error: message })
+        res.status(500).json({ error: 'Internal server error' })
       })
   })
 }

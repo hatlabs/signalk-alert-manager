@@ -213,7 +213,7 @@ describe('REST API Routes', () => {
       expect(body[0].category).toBe('engine')
     })
 
-    it('should filter by stale', async () => {
+    it('should filter by stale=true', async () => {
       const alert = await raiseTestAlert(ctx)
       ctx.manager.markSourceOffline(alert.sourceId)
 
@@ -221,6 +221,21 @@ describe('REST API Routes', () => {
       const body = (await res.json()) as Alert[]
       expect(body).toHaveLength(1)
       expect(body[0].stale).toBe(true)
+    })
+
+    it('should filter by stale=false', async () => {
+      await raiseTestAlert(ctx, { message: 'Fresh alert' })
+      const staleAlert = await raiseTestAlert(ctx, { message: 'Stale alert' })
+      ctx.manager.markSourceOffline(staleAlert.sourceId)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts?stale=false`)
+      const body = (await res.json()) as Alert[]
+      expect(body.every((a) => !a.stale)).toBe(true)
+    })
+
+    it('should return 400 for invalid stale value', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts?stale=yes`)
+      expect(res.status).toBe(400)
     })
   })
 
@@ -370,6 +385,21 @@ describe('REST API Routes', () => {
       })
       expect(res.status).toBe(400)
     })
+
+    it('should ignore array data field', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priority: 'alarm',
+          message: 'Array data test',
+          data: [1, 2, 3]
+        })
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as Alert
+      expect(body.data).toBeUndefined()
+    })
   })
 
   // =========================================================================
@@ -459,6 +489,17 @@ describe('REST API Routes', () => {
       expect(res.status).toBe(400)
     })
 
+    it('should return 400 for non-finite duration', async () => {
+      const alert = await raiseTestAlert(ctx)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/silence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 1e308 * 2 })
+      })
+      expect(res.status).toBe(400)
+    })
+
     it('should return 404 for non-existent alert', async () => {
       const res = await fetch(`${ctx.baseUrl}/alerts/non-existent/silence`, { method: 'POST' })
       expect(res.status).toBe(404)
@@ -527,6 +568,25 @@ describe('REST API Routes', () => {
         cleared: boolean
       }
       expect(body.cleared).toBe(true)
+    })
+
+    it('should return current alert state for active: true (no-op)', async () => {
+      const alert = await raiseTestAlert(ctx)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/condition`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: true })
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        alert: Alert
+        cleared: boolean
+        previousState: string
+      }
+      expect(body.cleared).toBe(false)
+      expect(body.alert.id).toBe(alert.id)
+      expect(body.previousState).toBe('unacknowledged')
     })
 
     it('should return 400 when active field is missing', async () => {
@@ -655,6 +715,27 @@ describe('REST API Routes', () => {
     it('should return 400 for negative limit', async () => {
       const res = await fetch(`${ctx.baseUrl}/alerts/history?limit=-1`)
       expect(res.status).toBe(400)
+    })
+
+    it('should return 400 for invalid eventType', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts/history?eventType=invalid`)
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('Invalid eventType')
+    })
+
+    it('should return 400 for invalid from date', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts/history?from=not-a-date`)
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('from must be a valid')
+    })
+
+    it('should return 400 for invalid to date', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts/history?to=garbage`)
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('to must be a valid')
     })
   })
 
