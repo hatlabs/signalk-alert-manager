@@ -5,6 +5,7 @@
  */
 
 import { join } from 'path'
+import type { IRouter } from 'express'
 import type { Plugin, ServerAPI } from '@signalk/server-api'
 import type { AlertDefinition, AlertManagerAPI, PluginConfig } from './types.js'
 import { AlertManager, type AlertManagerConfig } from './core/AlertManager.js'
@@ -12,6 +13,7 @@ import { AlertStore } from './store/AlertStore.js'
 import { HistoryStore } from './store/HistoryStore.js'
 import { NotificationTransformer } from './integration/NotificationTransformer.js'
 import { DeltaPublisher } from './integration/DeltaPublisher.js'
+import { registerRoutes } from './api/routes.js'
 
 // Export all types for use by other plugins and clients
 export type {
@@ -291,6 +293,13 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       transformer = undefined
       publisher = undefined
       readyPromise = undefined
+    },
+
+    registerWithRouter(router: IRouter): void {
+      registerRoutes(router, {
+        getAlertManager: () => manager,
+        getHistoryStore: () => historyStore
+      })
     },
 
     getRestartCallback: () => restartCallback,
