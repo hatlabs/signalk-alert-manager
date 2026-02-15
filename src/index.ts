@@ -14,6 +14,7 @@ import { HistoryStore } from './store/HistoryStore.js'
 import { NotificationTransformer } from './integration/NotificationTransformer.js'
 import { DeltaPublisher } from './integration/DeltaPublisher.js'
 import { registerRoutes } from './api/routes.js'
+import openApi from './api/openApi.json' with { type: 'json' }
 
 // Export all types for use by other plugins and clients
 export type {
@@ -153,6 +154,8 @@ export interface AlertManagerPlugin extends Plugin {
   getRestartCallback?: () => ((newConfiguration: object) => void) | undefined
   /** Promise that resolves when async initialization completes */
   whenReady?: () => Promise<void>
+  /** Return the OpenAPI spec for Signal K server discovery */
+  getOpenApi?: () => object
 }
 
 export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
@@ -303,7 +306,8 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
     },
 
     getRestartCallback: () => restartCallback,
-    whenReady: () => readyPromise ?? Promise.resolve()
+    whenReady: () => readyPromise ?? Promise.resolve(),
+    getOpenApi: () => openApi
   }
 
   return plugin

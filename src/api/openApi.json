@@ -1,0 +1,559 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Signal K Alert Manager API",
+    "description": "REST API for centralized alert management following IEC 62682 and IMO standards.",
+    "version": "0.1.0",
+    "license": {
+      "name": "Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/plugins/signalk-alert-manager",
+      "description": "Signal K server plugin route"
+    }
+  ],
+  "security": [
+    { "bearerAuth": [] },
+    { "cookieAuth": [] }
+  ],
+  "paths": {
+    "/alerts": {
+      "get": {
+        "summary": "List alerts",
+        "description": "Returns all active alerts, optionally filtered by state, priority, category, or stale status.",
+        "operationId": "listAlerts",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "description": "Filter by alert state(s), comma-separated.",
+            "schema": {
+              "type": "string"
+            },
+            "examples": {
+              "single": { "value": "unacknowledged" },
+              "multiple": { "value": "unacknowledged,acknowledged" }
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filter by priority level(s), comma-separated.",
+            "schema": {
+              "type": "string"
+            },
+            "examples": {
+              "single": { "value": "alarm" },
+              "multiple": { "value": "alarm,warning" }
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by category.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stale",
+            "in": "query",
+            "description": "Filter by stale status.",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of matching alerts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Alert" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      },
+      "post": {
+        "summary": "Raise alert",
+        "description": "Raise a new alert with the given priority and message.",
+        "operationId": "raiseAlert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RaiseAlertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Alert created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Alert" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/indication": {
+      "get": {
+        "summary": "Get indication state",
+        "description": "Returns the aggregate hardware indication state for driving alarm panels and buzzers.",
+        "operationId": "getIndicationState",
+        "responses": {
+          "200": {
+            "description": "Current indication state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IndicationState" }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/history": {
+      "get": {
+        "summary": "Get alert history",
+        "description": "Returns alert lifecycle history entries with optional filtering and pagination.",
+        "operationId": "getAlertHistory",
+        "parameters": [
+          {
+            "name": "alertId",
+            "in": "query",
+            "description": "Filter by alert ID.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of date range (ISO 8601).",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of date range (ISO 8601).",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "eventType",
+            "in": "query",
+            "description": "Filter by event type(s), comma-separated.",
+            "schema": { "type": "string" },
+            "examples": {
+              "single": { "value": "raise" },
+              "multiple": { "value": "raise,acknowledge" }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of entries to return.",
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of entries to skip for pagination.",
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History query result.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HistoryQueryResult" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/silence-all": {
+      "post": {
+        "summary": "Silence all alerts",
+        "description": "Silence all currently unacknowledged alerts.",
+        "operationId": "silenceAllAlerts",
+        "responses": {
+          "200": {
+            "description": "All alerts silenced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["ok"],
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/{id}": {
+      "get": {
+        "summary": "Get alert by ID",
+        "description": "Returns a single alert by its unique ID.",
+        "operationId": "getAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Alert UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested alert.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Alert" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/{id}/acknowledge": {
+      "post": {
+        "summary": "Acknowledge alert",
+        "description": "Acknowledge an alert. If the alert's condition has already cleared and it is latching, acknowledgment clears it.",
+        "operationId": "acknowledgeAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Alert UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transition result.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AlertTransitionResult" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/{id}/silence": {
+      "post": {
+        "summary": "Silence alert",
+        "description": "Silence an alert's audible indicators, optionally for a specified duration.",
+        "operationId": "silenceAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Alert UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "duration": {
+                    "type": "number",
+                    "description": "Silence duration in seconds. Must be a finite positive number.",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The silenced alert.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Alert" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/alerts/{id}/condition": {
+      "put": {
+        "summary": "Update condition state",
+        "description": "Set or clear the triggering condition for an alert. Setting active to false clears the condition; setting active to true is a no-op for existing alerts.",
+        "operationId": "updateCondition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Alert UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["active"],
+                "properties": {
+                  "active": {
+                    "type": "boolean",
+                    "description": "Whether the triggering condition is active."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition result.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AlertTransitionResult" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AlertPriority": {
+        "type": "string",
+        "enum": ["emergency", "alarm", "warning", "caution"],
+        "description": "Alert priority levels following the IMO model."
+      },
+      "AlertState": {
+        "type": "string",
+        "enum": ["unacknowledged", "acknowledged", "rtn-unacknowledged"],
+        "description": "Alert states based on IEC 62682 simplified model."
+      },
+      "HistoryEventType": {
+        "type": "string",
+        "enum": ["raise", "acknowledge", "silence", "unsilence", "clear", "escalate"],
+        "description": "Types of events recorded in alert history."
+      },
+      "Alert": {
+        "type": "object",
+        "required": [
+          "id", "sourceId", "priority", "state", "condition", "latching",
+          "silenced", "message", "raisedAt", "sourceOnline", "lastSourceUpdate", "stale"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sourceId": { "type": "string" },
+          "priority": { "$ref": "#/components/schemas/AlertPriority" },
+          "state": { "$ref": "#/components/schemas/AlertState" },
+          "condition": { "type": "boolean" },
+          "latching": { "type": "boolean" },
+          "silenced": { "type": "boolean" },
+          "silencedUntil": { "type": "string", "format": "date-time" },
+          "message": { "type": "string" },
+          "category": { "type": "string" },
+          "data": { "type": "object", "additionalProperties": true },
+          "raisedAt": { "type": "string", "format": "date-time" },
+          "acknowledgedAt": { "type": "string", "format": "date-time" },
+          "acknowledgedBy": { "type": "string" },
+          "clearedAt": { "type": "string", "format": "date-time" },
+          "sourceOnline": { "type": "boolean" },
+          "lastSourceUpdate": { "type": "string", "format": "date-time" },
+          "stale": { "type": "boolean" },
+          "context": { "type": "string" }
+        }
+      },
+      "IndicationState": {
+        "type": "object",
+        "required": ["audible", "priority", "flash", "silenced", "unacknowledgedCount"],
+        "properties": {
+          "audible": { "type": "boolean" },
+          "priority": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/AlertPriority" }],
+            "description": "Highest priority of unacknowledged alerts, or null if none."
+          },
+          "flash": { "type": "boolean" },
+          "silenced": { "type": "boolean" },
+          "unacknowledgedCount": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "RaiseAlertRequest": {
+        "type": "object",
+        "description": "Alerts raised via the REST API are always scoped to vessels.self. Vessel context is not configurable through this endpoint.",
+        "required": ["priority", "message"],
+        "properties": {
+          "priority": { "$ref": "#/components/schemas/AlertPriority" },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Identifier for the alert source. Defaults to 'rest-api' when omitted."
+          },
+          "category": { "type": "string" },
+          "data": { "type": "object", "additionalProperties": true },
+          "latching": { "type": "boolean" }
+        }
+      },
+      "AlertTransitionResult": {
+        "type": "object",
+        "required": ["alert", "cleared", "previousState"],
+        "properties": {
+          "alert": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/Alert" }],
+            "description": "The updated alert, or null if cleared."
+          },
+          "cleared": { "type": "boolean" },
+          "previousState": { "$ref": "#/components/schemas/AlertState" }
+        }
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "required": ["id", "alertId", "eventType", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "alertId": { "type": "string" },
+          "eventType": { "$ref": "#/components/schemas/HistoryEventType" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "userId": { "type": "string" },
+          "previousState": { "$ref": "#/components/schemas/AlertState" },
+          "newState": { "$ref": "#/components/schemas/AlertState" },
+          "previousPriority": { "$ref": "#/components/schemas/AlertPriority" },
+          "newPriority": { "$ref": "#/components/schemas/AlertPriority" },
+          "details": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "HistoryQueryResult": {
+        "type": "object",
+        "required": ["entries", "total"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/HistoryEntry" }
+          },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Authentication is handled by the Signal K server. When security is enabled, a valid token is required."
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JAUTHTOKEN",
+        "description": "Session cookie set by the Signal K server login endpoint."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required. Security is enabled on the Signal K server.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Validation error.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Alert not found.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Alert manager not ready.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  }
+}
