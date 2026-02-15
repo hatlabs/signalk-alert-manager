@@ -160,6 +160,38 @@ describe('Signal K Plugin', () => {
         void plugin.stop()
       }).not.toThrow()
     })
+
+    it('should handle stop during async initialization', async () => {
+      plugin.start({}, () => {
+        /* restart callback */
+      })
+
+      // Stop immediately before init completes
+      void plugin.stop()
+
+      // Wait for the async chain to settle
+      await new Promise((r) => setTimeout(r, 100))
+
+      // alertManager should not be set since we stopped during init
+      const appWithApi = mockApi as unknown as ServerAPI
+      expect(appWithApi.alertManager).toBeUndefined()
+    })
+
+    it('should guard against double start', async () => {
+      plugin.start({}, () => {
+        /* restart callback */
+      })
+      await plugin.whenReady?.()
+
+      // Second start should be a no-op
+      plugin.start({}, () => {
+        /* restart callback */
+      })
+
+      // Should still be functional
+      const api = (mockApi as unknown as ServerAPI).alertManager
+      expect(api).toBeDefined()
+    })
   })
 
   describe('Configuration Handling', () => {
