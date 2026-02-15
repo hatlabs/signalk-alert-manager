@@ -157,6 +157,7 @@ describe('DeltaPublisher', () => {
     })
 
     const update = capturedDeltas[0].delta.updates[0]
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- DeltaPublisher uses legacy source property
     expect(update.source).toEqual({ label: 'alert-manager' })
   })
 
