@@ -1,0 +1,35 @@
+/**
+ * OpenBridge-inspired priority color definitions and ordering.
+ *
+ * @see docs/SPEC.md Section 8.1 for design guidelines
+ */
+
+import type { AlertPriority, AlertState } from '../../types.js'
+
+export const PRIORITY_COLORS: Record<AlertPriority, { color: string; background: string }> = {
+  emergency: { color: '#D32F2F', background: '#FFEBEE' },
+  alarm: { color: '#F57C00', background: '#FFF3E0' },
+  warning: { color: '#FBC02D', background: '#FFFDE7' },
+  caution: { color: '#1976D2', background: '#E3F2FD' }
+}
+
+/** Lower number = higher priority (for sorting). */
+export const PRIORITY_ORDER: Record<AlertPriority, number> = {
+  emergency: 0,
+  alarm: 1,
+  warning: 2,
+  caution: 3
+}
+
+export const PRIORITY_LABELS: Record<AlertPriority, string> = {
+  emergency: 'Emergency',
+  alarm: 'Alarm',
+  warning: 'Warning',
+  caution: 'Caution'
+}
+
+export const STATE_LABELS: Record<AlertState, string> = {
+  unacknowledged: 'Unacknowledged',
+  acknowledged: 'Acknowledged',
+  'rtn-unacknowledged': 'RTN Unacked'
+}
