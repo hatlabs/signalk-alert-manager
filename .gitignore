@@ -33,3 +33,7 @@ yarn-error.log*
 
 # Local test server
 test-server/
+
+# E2E test temp directories
+.e2e-test-*
+.e2e-persist-*
