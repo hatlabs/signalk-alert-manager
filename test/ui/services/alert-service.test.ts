@@ -532,6 +532,81 @@ describe('AlertService', () => {
   })
 
   // -------------------------------------------------------------------------
+  // Mutation methods
+  // -------------------------------------------------------------------------
+
+  describe('acknowledgeAlert()', () => {
+    it('sends POST to correct endpoint', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      await service.acknowledgeAlert('alert-42')
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/plugins/signalk-alert-manager/alerts/alert-42/acknowledge',
+        { method: 'POST' }
+      )
+    })
+
+    it('throws on non-ok response', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 404, statusText: 'Not Found' })
+
+      await expect(service.acknowledgeAlert('bad-id')).rejects.toThrow()
+    })
+  })
+
+  describe('silenceAlert()', () => {
+    it('sends POST with default duration (no body)', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      await service.silenceAlert('alert-42')
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/plugins/signalk-alert-manager/alerts/alert-42/silence',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+      )
+    })
+
+    it('sends POST with custom duration in body', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      await service.silenceAlert('alert-42', 120)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/plugins/signalk-alert-manager/alerts/alert-42/silence',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ duration: 120 })
+        }
+      )
+    })
+
+    it('throws on non-ok response', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 500, statusText: 'Server Error' })
+
+      await expect(service.silenceAlert('alert-42')).rejects.toThrow()
+    })
+  })
+
+  describe('silenceAll()', () => {
+    it('sends POST to silence-all endpoint', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      await service.silenceAll()
+
+      expect(fetchMock).toHaveBeenCalledWith('/plugins/signalk-alert-manager/alerts/silence-all', {
+        method: 'POST'
+      })
+    })
+
+    it('throws on non-ok response', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 503, statusText: 'Unavailable' })
+
+      await expect(service.silenceAll()).rejects.toThrow()
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // Reconnection
   // -------------------------------------------------------------------------
 
