@@ -74,6 +74,42 @@ export class AlertService extends EventTarget {
     this.alerts.clear()
   }
 
+  /** Acknowledge an alert. State update arrives via WebSocket. */
+  async acknowledgeAlert(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/alerts/${id}/acknowledge`, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error(
+        `Failed to acknowledge alert: ${String(response.status)} ${response.statusText}`
+      )
+    }
+  }
+
+  /** Silence an alert. Duration is in seconds; omit for server default. */
+  async silenceAlert(id: string, duration?: number): Promise<void> {
+    const body: Record<string, unknown> = {}
+    if (duration !== undefined) {
+      body.duration = duration
+    }
+    const response = await fetch(`${API_BASE}/alerts/${id}/silence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to silence alert: ${String(response.status)} ${response.statusText}`)
+    }
+  }
+
+  /** Silence all unacknowledged alerts. */
+  async silenceAll(): Promise<void> {
+    const response = await fetch(`${API_BASE}/alerts/silence-all`, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error(
+        `Failed to silence all alerts: ${String(response.status)} ${response.statusText}`
+      )
+    }
+  }
+
   /**
    * Get alerts, optionally filtered and sorted.
    *

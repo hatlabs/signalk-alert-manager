@@ -54,7 +54,37 @@ export class AlertList extends LitElement {
     .alert-count {
       font-size: 0.8rem;
       color: #666;
+    }
+
+    .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       margin-left: auto;
+    }
+
+    button[data-action='silence-all'] {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #1976d2;
+      border-radius: 4px;
+      background: #fff;
+      color: #1565c0;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    button[data-action='silence-all']:hover:not(:disabled) {
+      background: #e3f2fd;
+    }
+
+    button[data-action='silence-all']:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .empty {
@@ -90,6 +120,8 @@ export class AlertList extends LitElement {
   connectedCallback(): void {
     super.connectedCallback()
     this.service.addEventListener('change', this.onServiceChange)
+    this.addEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
+    this.addEventListener('alert-silence', this.onAlertSilence as EventListener)
     this.service.connect().catch(() => {
       // Connection failure; alerts stay empty until retry succeeds
     })
@@ -98,6 +130,8 @@ export class AlertList extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback()
     this.service.removeEventListener('change', this.onServiceChange)
+    this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
+    this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
     this.service.disconnect()
   }
 
@@ -135,6 +169,33 @@ export class AlertList extends LitElement {
   private onSortChange(e: Event): void {
     this.sortBy = (e.target as HTMLSelectElement).value as SortBy
     this.updateAlerts()
+  }
+
+  private onAlertAcknowledge = (e: CustomEvent<{ id: string }>): void => {
+    this.service.acknowledgeAlert(e.detail.id).catch(() => {
+      // Error handling — state will remain unchanged via WebSocket
+    })
+  }
+
+  private onAlertSilence = (e: CustomEvent<{ id: string }>): void => {
+    this.service.silenceAlert(e.detail.id).catch(() => {
+      // Error handling — state will remain unchanged via WebSocket
+    })
+  }
+
+  /** Check all alerts (unfiltered) — silence-all is a global action. */
+  private hasUnsilencedUnacknowledged(): boolean {
+    return this.service
+      .getAlerts()
+      .some(
+        (a) => (a.state === 'unacknowledged' || a.state === 'rtn-unacknowledged') && !a.silenced
+      )
+  }
+
+  private onSilenceAll(): void {
+    this.service.silenceAll().catch(() => {
+      // Error handling — state will remain unchanged via WebSocket
+    })
   }
 
   render() {
@@ -191,9 +252,18 @@ export class AlertList extends LitElement {
           </select>
         </div>
 
-        <span class="alert-count"
-          >${String(this.alerts.length)} alert${this.alerts.length !== 1 ? 's' : ''}</span
-        >
+        <div class="controls-right">
+          <button
+            data-action="silence-all"
+            ?disabled=${!this.hasUnsilencedUnacknowledged()}
+            @click=${this.onSilenceAll}
+          >
+            Silence All
+          </button>
+          <span class="alert-count"
+            >${String(this.alerts.length)} alert${this.alerts.length !== 1 ? 's' : ''}</span
+          >
+        </div>
       </div>
 
       ${this.alerts.length === 0
