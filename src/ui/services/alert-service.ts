@@ -99,7 +99,9 @@ export class AlertService extends EventTarget {
     this.ws.onopen = () => {
       this.reconnectDelay = 1000
 
-      // Re-sync alert state from REST API to catch changes missed during disconnect
+      // Re-sync from REST API before subscribing to deltas — this
+      // prevents deltas from arriving while the fetch is in flight
+      // and then being wiped by alerts.clear() when the fetch resolves.
       this.fetchAlerts()
         .then(() => {
           this.dispatchEvent(new Event('change'))
@@ -107,13 +109,14 @@ export class AlertService extends EventTarget {
         .catch(() => {
           // Non-fatal; we still have the previous state + live updates
         })
-
-      this.ws?.send(
-        JSON.stringify({
-          context: 'vessels.self',
-          subscribe: [{ path: 'alerts.active.*', minPeriod: 0 }]
+        .finally(() => {
+          this.ws?.send(
+            JSON.stringify({
+              context: 'vessels.self',
+              subscribe: [{ path: 'alerts.active.*', minPeriod: 0 }]
+            })
+          )
         })
-      )
     }
 
     this.ws.onmessage = (ev: MessageEvent) => {
@@ -197,7 +200,8 @@ function applyFilter(alerts: Alert[], filter: AlertFilter): Alert[] {
   }
 
   if (filter.category !== undefined) {
-    result = result.filter((a) => a.category === filter.category)
+    const needle = filter.category.toLowerCase()
+    result = result.filter((a) => a.category?.toLowerCase().includes(needle))
   }
 
   if (filter.stale !== undefined) {

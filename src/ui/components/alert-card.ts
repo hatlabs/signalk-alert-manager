@@ -143,10 +143,6 @@ export class AlertCard extends LitElement {
 customElements.define('alert-card', AlertCard)
 
 function formatTime(iso: string): string {
-  try {
-    const date = new Date(iso)
-    return date.toLocaleString()
-  } catch {
-    return iso
-  }
+  const date = new Date(iso)
+  return isNaN(date.getTime()) ? iso : date.toLocaleString()
 }

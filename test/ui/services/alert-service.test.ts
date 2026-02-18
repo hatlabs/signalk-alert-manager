@@ -157,6 +157,8 @@ describe('AlertService', () => {
 
       const ws = wsInstances[0]
       ws.simulateOpen()
+      // Subscription is sent after the re-sync fetch settles
+      await new Promise((r) => setTimeout(r, 0))
 
       expect(ws.sent).toHaveLength(1)
       const subscription = JSON.parse(ws.sent[0])
@@ -337,10 +339,21 @@ describe('AlertService', () => {
       expect(result).toHaveLength(2)
     })
 
-    it('filters by category', () => {
+    it('filters by category (exact match)', () => {
       const result = service.getAlerts({ category: 'engine' })
       expect(result).toHaveLength(2)
       expect(result.every((a) => a.category === 'engine')).toBe(true)
+    })
+
+    it('filters by category substring (case-insensitive)', () => {
+      const result = service.getAlerts({ category: 'eng' })
+      expect(result).toHaveLength(2)
+      expect(result.every((a) => a.category === 'engine')).toBe(true)
+    })
+
+    it('filters by category case-insensitively', () => {
+      const result = service.getAlerts({ category: 'ENGINE' })
+      expect(result).toHaveLength(2)
     })
 
     it('combines filters (AND logic)', () => {
