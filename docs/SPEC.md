@@ -328,7 +328,25 @@ The UI follows **OpenBridge** design guidelines for maritime alert interfaces:
 - Different tones per priority level
 - Respects silence state
 
-### 8.4 External Hardware API
+### 8.4 Alert Display Ordering
+
+Per IMO MSC.302(87) Section 9.16:
+
+> "As default, the alerts should be presented grouped in order of priority. Within the priorities the alerts should be displayed in the order in which they occur (sequence)."
+
+Combined with Sections 7.3.3 and 7.3.9 (unacknowledged alerts flash, acknowledged alerts show steady), unacknowledged alerts requiring operator attention are displayed before acknowledged ones.
+
+**Default sort order:**
+
+1. **State**: Unacknowledged and RTN-unacknowledged alerts first, then acknowledged
+2. **Priority**: Within each state group, highest priority first (EA → A → W → C)
+3. **Time**: Within same state and priority, oldest first (order of occurrence)
+
+The "oldest first" ordering within a group ensures the longest-standing alert is most prominent — the one the operator has been ignoring longest demands the most attention.
+
+An alternative "newest first" sort is available for reviewing recent alert activity.
+
+### 8.5 External Hardware API
 
 For physical alarm panels, buzzers, and displays:
 

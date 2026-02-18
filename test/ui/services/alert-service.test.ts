@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { AlertService } from '../../../src/ui/services/alert-service.js'
-import type { Alert, AlertPriority, AlertState } from '../../../src/types.js'
+import type { Alert, AlertState } from '../../../src/types.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -356,70 +356,134 @@ describe('AlertService', () => {
 
   describe('getAlerts() sorting', () => {
     const now = Date.now()
-    const alerts = [
-      makeAlert({
-        id: '1',
-        priority: 'caution',
-        raisedAt: new Date(now - 3000).toISOString()
-      }),
-      makeAlert({
-        id: '2',
-        priority: 'emergency',
-        raisedAt: new Date(now - 1000).toISOString()
-      }),
-      makeAlert({
-        id: '3',
-        priority: 'warning',
-        raisedAt: new Date(now - 2000).toISOString()
-      })
-    ]
 
-    beforeEach(async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(alerts)
-      })
-      await service.connect()
-    })
-
-    it('sorts by time (newest first) by default', () => {
-      const result = service.getAlerts()
-      expect(result.map((a) => a.id)).toEqual(['2', '3', '1'])
-    })
-
-    it('sorts by priority (highest first)', () => {
-      const result = service.getAlerts(undefined, 'priority')
-      expect(result.map((a) => a.priority)).toEqual(['emergency', 'warning', 'caution'])
-    })
-
-    it('sorts by priority then time for same priority', () => {
-      const samePriorityAlerts = [
+    // IMO MSC.302(87) §9.16 default: state → priority → oldest first
+    describe('standard sort (default)', () => {
+      const alerts = [
         makeAlert({
-          id: 'a',
-          priority: 'alarm',
-          raisedAt: new Date(now - 2000).toISOString()
-        }),
-        makeAlert({
-          id: 'b',
-          priority: 'alarm',
+          id: 'acked-warn',
+          priority: 'warning',
+          state: 'acknowledged',
           raisedAt: new Date(now - 1000).toISOString()
         }),
         makeAlert({
-          id: 'c',
+          id: 'unacked-caution',
+          priority: 'caution',
+          state: 'unacknowledged',
+          raisedAt: new Date(now - 2000).toISOString()
+        }),
+        makeAlert({
+          id: 'unacked-emergency',
           priority: 'emergency',
+          state: 'unacknowledged',
           raisedAt: new Date(now - 3000).toISOString()
+        }),
+        makeAlert({
+          id: 'rtn-unacked',
+          priority: 'alarm',
+          state: 'rtn-unacknowledged',
+          raisedAt: new Date(now - 4000).toISOString()
+        }),
+        makeAlert({
+          id: 'acked-emergency',
+          priority: 'emergency',
+          state: 'acknowledged',
+          raisedAt: new Date(now - 5000).toISOString()
         })
       ]
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(samePriorityAlerts)
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(alerts)
+        })
+        await service.connect()
       })
 
-      const service2 = new AlertService()
-      return service2.connect().then(() => {
-        const result = service2.getAlerts(undefined, 'priority')
-        expect(result.map((a) => a.id)).toEqual(['c', 'b', 'a'])
-        service2.disconnect()
+      it('places unacknowledged alerts before acknowledged', () => {
+        const result = service.getAlerts()
+        const ackedIdx = result.findIndex((a) => a.state === 'acknowledged')
+        const lastUnackedIdx = result.findLastIndex(
+          (a) => a.state === 'unacknowledged' || a.state === 'rtn-unacknowledged'
+        )
+        expect(lastUnackedIdx).toBeLessThan(ackedIdx)
+      })
+
+      it('treats rtn-unacknowledged the same as unacknowledged', () => {
+        const result = service.getAlerts()
+        const rtnIdx = result.findIndex((a) => a.id === 'rtn-unacked')
+        const firstAckedIdx = result.findIndex((a) => a.state === 'acknowledged')
+        expect(rtnIdx).toBeLessThan(firstAckedIdx)
+      })
+
+      it('sorts by priority within each state group', () => {
+        const result = service.getAlerts()
+        // Unacked group: emergency, alarm (rtn), caution
+        const unackedGroup = result.filter(
+          (a) => a.state === 'unacknowledged' || a.state === 'rtn-unacknowledged'
+        )
+        expect(unackedGroup.map((a) => a.priority)).toEqual(['emergency', 'alarm', 'caution'])
+      })
+
+      it('sorts oldest first within same state and priority', () => {
+        // Add two unacked alarms at different times
+        const twoAlarms = [
+          makeAlert({
+            id: 'newer-alarm',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 1000).toISOString()
+          }),
+          makeAlert({
+            id: 'older-alarm',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 5000).toISOString()
+          })
+        ]
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(twoAlarms)
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['older-alarm', 'newer-alarm'])
+          service2.disconnect()
+        })
+      })
+
+      it('produces full IMO-compliant ordering', () => {
+        const result = service.getAlerts()
+        expect(result.map((a) => a.id)).toEqual([
+          'unacked-emergency', // unacked, highest priority, oldest
+          'rtn-unacked', // unacked (rtn), alarm
+          'unacked-caution', // unacked, lowest priority
+          'acked-emergency', // acked, highest priority
+          'acked-warn' // acked, lower priority
+        ])
+      })
+    })
+
+    describe('newest sort', () => {
+      const alerts = [
+        makeAlert({ id: 'old', raisedAt: new Date(now - 3000).toISOString() }),
+        makeAlert({ id: 'new', raisedAt: new Date(now - 1000).toISOString() }),
+        makeAlert({ id: 'mid', raisedAt: new Date(now - 2000).toISOString() })
+      ]
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(alerts)
+        })
+        await service.connect()
+      })
+
+      it('sorts newest first regardless of state or priority', () => {
+        const result = service.getAlerts(undefined, 'newest')
+        expect(result.map((a) => a.id)).toEqual(['new', 'mid', 'old'])
       })
     })
   })

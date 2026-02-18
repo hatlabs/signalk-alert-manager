@@ -7,10 +7,17 @@
  * Dispatches 'change' events when the alert list is updated.
  */
 
-import type { Alert, AlertFilter, AlertPriority } from '../../types.js'
+import type { Alert, AlertFilter, AlertPriority, AlertState } from '../../types.js'
 import { PRIORITY_ORDER } from '../styles/priority.js'
 
-export type SortBy = 'time' | 'priority'
+/**
+ * Sort modes for the alert list.
+ *
+ * - 'standard': IMO MSC.302(87) §9.16 default — unacked first, then by
+ *   priority, then oldest first within each group
+ * - 'newest': Pure reverse-chronological (most recent first)
+ */
+export type SortBy = 'standard' | 'newest'
 
 /** REST API base path for the alert manager plugin. */
 const API_BASE = '/plugins/signalk-alert-manager'
@@ -71,9 +78,9 @@ export class AlertService extends EventTarget {
    * Get alerts, optionally filtered and sorted.
    *
    * @param filter - Optional filter criteria (state, priority, category)
-   * @param sortBy - Sort order: 'time' (newest first, default) or 'priority' (highest first)
+   * @param sortBy - Sort order: 'standard' (IMO default) or 'newest' (reverse chronological)
    */
-  getAlerts(filter?: AlertFilter, sortBy: SortBy = 'time'): Alert[] {
+  getAlerts(filter?: AlertFilter, sortBy: SortBy = 'standard'): Alert[] {
     let result = Array.from(this.alerts.values())
 
     if (filter) {
@@ -200,23 +207,34 @@ function applyFilter(alerts: Alert[], filter: AlertFilter): Alert[] {
   return result
 }
 
+/**
+ * Unacknowledged states need operator attention and sort before acknowledged.
+ * Lower number = higher display priority.
+ */
+const STATE_ORDER: Record<AlertState, number> = {
+  unacknowledged: 0,
+  'rtn-unacknowledged': 0,
+  acknowledged: 1
+}
+
 function applySort(alerts: Alert[], sortBy: SortBy): Alert[] {
   return alerts.slice().sort((a, b) => {
-    if (sortBy === 'priority') {
-      const pDiff = priorityCompare(a.priority, b.priority)
-      if (pDiff !== 0) return pDiff
-      // Same priority: newest first
-      return timeCompare(a.raisedAt, b.raisedAt)
+    if (sortBy === 'newest') {
+      return newestFirst(a.raisedAt, b.raisedAt)
     }
-    // Default: newest first
-    return timeCompare(a.raisedAt, b.raisedAt)
+    // IMO MSC.302(87) §9.16 default: state → priority → oldest first
+    const sDiff = STATE_ORDER[a.state] - STATE_ORDER[b.state]
+    if (sDiff !== 0) return sDiff
+    const pDiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+    if (pDiff !== 0) return pDiff
+    return oldestFirst(a.raisedAt, b.raisedAt)
   })
 }
 
-function priorityCompare(a: AlertPriority, b: AlertPriority): number {
-  return PRIORITY_ORDER[a] - PRIORITY_ORDER[b]
+function oldestFirst(a: string, b: string): number {
+  return new Date(a).getTime() - new Date(b).getTime()
 }
 
-function timeCompare(a: string, b: string): number {
+function newestFirst(a: string, b: string): number {
   return new Date(b).getTime() - new Date(a).getTime()
 }

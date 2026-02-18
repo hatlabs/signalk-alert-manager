@@ -84,7 +84,7 @@ export class AlertList extends LitElement {
     this.filterState = ''
     this.filterPriority = ''
     this.filterCategory = ''
-    this.sortBy = 'time'
+    this.sortBy = 'standard'
   }
 
   connectedCallback(): void {
@@ -186,8 +186,8 @@ export class AlertList extends LitElement {
         <div class="control-group">
           <label for="sort">Sort</label>
           <select id="sort" data-sort @change=${this.onSortChange} .value=${this.sortBy}>
-            <option value="time">Newest first</option>
-            <option value="priority">Priority</option>
+            <option value="standard">Standard</option>
+            <option value="newest">Newest first</option>
           </select>
         </div>
 
