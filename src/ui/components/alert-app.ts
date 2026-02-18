@@ -19,6 +19,7 @@ export class AlertApp extends LitElement {
   render() {
     return html`
       <h1>Alert Manager</h1>
+      <alert-banner></alert-banner>
       <alert-list></alert-list>
     `
   }
