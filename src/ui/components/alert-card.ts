@@ -11,7 +11,8 @@ import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priori
 
 export class AlertCard extends LitElement {
   static properties = {
-    alert: { type: Object }
+    alert: { type: Object },
+    actionInFlight: { state: true }
   }
 
   static styles = css`
@@ -104,9 +105,120 @@ export class AlertCard extends LitElement {
       font-size: 0.75rem;
       color: #888;
     }
+
+    .silenced {
+      font-size: 0.7rem;
+      padding: 0.125rem 0.375rem;
+      border-radius: 3px;
+      background: #e8eaf6;
+      color: #3949ab;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      padding: 0.75rem;
+      justify-content: center;
+    }
+
+    .actions button {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    .actions button:hover:not(:disabled) {
+      background: #f5f5f5;
+    }
+
+    .actions button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .actions button[data-action='acknowledge'] {
+      border-color: #4caf50;
+      color: #2e7d32;
+    }
+
+    .actions button[data-action='silence'] {
+      border-color: #1976d2;
+      color: #1565c0;
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        flex-wrap: wrap;
+      }
+
+      .actions {
+        flex-direction: row;
+        width: 100%;
+        padding: 0 0.75rem 0.75rem;
+      }
+
+      .actions button {
+        flex: 1;
+      }
+    }
   `
 
   declare alert: Alert
+  declare actionInFlight: boolean
+
+  private safetyTimer: ReturnType<typeof setTimeout> | null = null
+
+  constructor() {
+    super()
+    this.actionInFlight = false
+  }
+
+  updated(changed: Map<string, unknown>): void {
+    if (changed.has('alert')) {
+      this.actionInFlight = false
+      if (this.safetyTimer !== null) {
+        clearTimeout(this.safetyTimer)
+        this.safetyTimer = null
+      }
+    }
+  }
+
+  private onAcknowledge(): void {
+    this.actionInFlight = true
+    this.safetyTimer = setTimeout(() => {
+      this.actionInFlight = false
+    }, 5000)
+    this.dispatchEvent(
+      new CustomEvent('alert-acknowledge', {
+        detail: { id: this.alert.id },
+        bubbles: true,
+        composed: true
+      })
+    )
+  }
+
+  private onSilence(): void {
+    this.actionInFlight = true
+    this.safetyTimer = setTimeout(() => {
+      this.actionInFlight = false
+    }, 5000)
+    this.dispatchEvent(
+      new CustomEvent('alert-silence', {
+        detail: { id: this.alert.id },
+        bubbles: true,
+        composed: true
+      })
+    )
+  }
 
   render() {
     if (!this.alert) {
@@ -114,12 +226,15 @@ export class AlertCard extends LitElement {
     }
 
     const colors = PRIORITY_COLORS[this.alert.priority]
-    const isFlashing =
+    const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
+    const showAck = isUnacked && this.alert.priority !== 'caution'
+    const showSilence = isUnacked && !this.alert.silenced
+    const hasActions = showAck || showSilence
 
     return html`
       <div
-        class="card ${isFlashing ? 'flashing' : ''}"
+        class="card ${isUnacked ? 'flashing' : ''}"
         style="--priority-color: ${colors.color}; --priority-bg: ${colors.background}"
       >
         <div class="priority-bar"></div>
@@ -131,10 +246,35 @@ export class AlertCard extends LitElement {
               ? html`<span class="category">${this.alert.category}</span>`
               : nothing}
             ${this.alert.stale ? html`<span class="stale">Stale</span>` : nothing}
+            ${this.alert.silenced ? html`<span class="silenced">Silenced</span>` : nothing}
           </div>
           <div class="message">${this.alert.message}</div>
           <div class="time">${formatTime(this.alert.raisedAt)}</div>
         </div>
+        ${hasActions
+          ? html`
+              <div class="actions">
+                ${showAck
+                  ? html`<button
+                      data-action="acknowledge"
+                      ?disabled=${this.actionInFlight}
+                      @click=${this.onAcknowledge}
+                    >
+                      Acknowledge
+                    </button>`
+                  : nothing}
+                ${showSilence
+                  ? html`<button
+                      data-action="silence"
+                      ?disabled=${this.actionInFlight}
+                      @click=${this.onSilence}
+                    >
+                      Silence
+                    </button>`
+                  : nothing}
+              </div>
+            `
+          : nothing}
       </div>
     `
   }
