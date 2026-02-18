@@ -9,6 +9,9 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
 
+/** Timeout before re-enabling buttons if no WebSocket update arrives. */
+const ACTION_TIMEOUT_MS = 5000
+
 export class AlertCard extends LitElement {
   static properties = {
     alert: { type: Object },
@@ -182,23 +185,32 @@ export class AlertCard extends LitElement {
     this.actionInFlight = false
   }
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback()
+    this.clearSafetyTimer()
+  }
+
   updated(changed: Map<string, unknown>): void {
     if (changed.has('alert')) {
       this.actionInFlight = false
-      if (this.safetyTimer !== null) {
-        clearTimeout(this.safetyTimer)
-        this.safetyTimer = null
-      }
+      this.clearSafetyTimer()
     }
   }
 
-  private onAcknowledge(): void {
+  private clearSafetyTimer(): void {
+    if (this.safetyTimer !== null) {
+      clearTimeout(this.safetyTimer)
+      this.safetyTimer = null
+    }
+  }
+
+  private startAction(eventName: string): void {
     this.actionInFlight = true
     this.safetyTimer = setTimeout(() => {
       this.actionInFlight = false
-    }, 5000)
+    }, ACTION_TIMEOUT_MS)
     this.dispatchEvent(
-      new CustomEvent('alert-acknowledge', {
+      new CustomEvent(eventName, {
         detail: { id: this.alert.id },
         bubbles: true,
         composed: true
@@ -206,18 +218,12 @@ export class AlertCard extends LitElement {
     )
   }
 
+  private onAcknowledge(): void {
+    this.startAction('alert-acknowledge')
+  }
+
   private onSilence(): void {
-    this.actionInFlight = true
-    this.safetyTimer = setTimeout(() => {
-      this.actionInFlight = false
-    }, 5000)
-    this.dispatchEvent(
-      new CustomEvent('alert-silence', {
-        detail: { id: this.alert.id },
-        bubbles: true,
-        composed: true
-      })
-    )
+    this.startAction('alert-silence')
   }
 
   render() {
@@ -257,6 +263,7 @@ export class AlertCard extends LitElement {
                 ${showAck
                   ? html`<button
                       data-action="acknowledge"
+                      aria-label="Acknowledge: ${this.alert.message}"
                       ?disabled=${this.actionInFlight}
                       @click=${this.onAcknowledge}
                     >
@@ -266,6 +273,7 @@ export class AlertCard extends LitElement {
                 ${showSilence
                   ? html`<button
                       data-action="silence"
+                      aria-label="Silence: ${this.alert.message}"
                       ?disabled=${this.actionInFlight}
                       @click=${this.onSilence}
                     >

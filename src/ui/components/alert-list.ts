@@ -183,10 +183,13 @@ export class AlertList extends LitElement {
     })
   }
 
+  /** Check all alerts (unfiltered) — silence-all is a global action. */
   private hasUnsilencedUnacknowledged(): boolean {
-    return this.alerts.some(
-      (a) => (a.state === 'unacknowledged' || a.state === 'rtn-unacknowledged') && !a.silenced
-    )
+    return this.service
+      .getAlerts()
+      .some(
+        (a) => (a.state === 'unacknowledged' || a.state === 'rtn-unacknowledged') && !a.silenced
+      )
   }
 
   private onSilenceAll(): void {
