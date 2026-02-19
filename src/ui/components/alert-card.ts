@@ -8,6 +8,7 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling buttons if no WebSocket update arrives. */
 const ACTION_TIMEOUT_MS = 5000
@@ -57,6 +58,7 @@ export class AlertCard extends LitElement {
       flex: 1;
       padding: 0.75rem;
       min-width: 0;
+      cursor: pointer;
     }
 
     .header {
@@ -226,6 +228,16 @@ export class AlertCard extends LitElement {
     this.startAction('alert-silence')
   }
 
+  private onSelect(): void {
+    this.dispatchEvent(
+      new CustomEvent('alert-select', {
+        detail: { id: this.alert.id },
+        bubbles: true,
+        composed: true
+      })
+    )
+  }
+
   render() {
     if (!this.alert) {
       return nothing
@@ -244,7 +256,7 @@ export class AlertCard extends LitElement {
         style="--priority-color: ${colors.color}; --priority-bg: ${colors.background}"
       >
         <div class="priority-bar"></div>
-        <div class="content">
+        <div class="content" @click=${this.onSelect}>
           <div class="header">
             <span class="priority">${PRIORITY_LABELS[this.alert.priority]}</span>
             <span class="state">${STATE_LABELS[this.alert.state]}</span>
@@ -289,8 +301,3 @@ export class AlertCard extends LitElement {
 }
 
 customElements.define('alert-card', AlertCard)
-
-function formatTime(iso: string): string {
-  const date = new Date(iso)
-  return isNaN(date.getTime()) ? iso : date.toLocaleString()
-}

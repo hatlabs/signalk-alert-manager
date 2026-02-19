@@ -9,6 +9,7 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling button if no WebSocket update arrives. */
 const ACTION_TIMEOUT_MS = 5000
@@ -309,8 +310,3 @@ export class AlertBanner extends LitElement {
 }
 
 customElements.define('alert-banner', AlertBanner)
-
-function formatTime(iso: string): string {
-  const date = new Date(iso)
-  return isNaN(date.getTime()) ? iso : date.toLocaleString()
-}
