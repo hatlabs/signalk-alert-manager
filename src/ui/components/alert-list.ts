@@ -8,6 +8,7 @@
 import { LitElement, html, css } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
+import { AudioService } from '../services/audio-service.js'
 
 export class AlertList extends LitElement {
   static properties = {
@@ -74,6 +75,7 @@ export class AlertList extends LitElement {
   declare alerts: Alert[]
 
   private service = new AlertService()
+  private audioService = new AudioService()
 
   constructor() {
     super()
@@ -96,10 +98,12 @@ export class AlertList extends LitElement {
     this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
     this.service.disconnect()
+    this.audioService.dispose()
   }
 
   private onServiceChange = (): void => {
     this.alerts = this.service.getAlerts()
+    this.audioService.update(this.service.getAlerts())
   }
 
   private onAlertAcknowledge = (e: CustomEvent<{ id: string }>): void => {
