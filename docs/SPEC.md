@@ -312,12 +312,12 @@ The UI follows **OpenBridge** design guidelines for maritime alert interfaces:
 - Color coding per priority (red/orange/yellow/blue)
 - Flashing for unacknowledged alerts
 - Clear acknowledge/silence controls
-- Alert list with filtering and sorting
+- Alert list with priority-based ordering
 
 ### 8.2 Core UI Components
 
-1. **Alert Banner**: Persistent top/bottom bar showing highest priority unacked alert
-2. **Alert List**: Full list with filtering by priority, state, category
+1. **Alert Banner**: Embeddable component showing highest priority unacked alert (for use in other apps, e.g. chart plotters)
+2. **Alert List**: Full list with alert count and global silence control
 3. **Alert Detail**: Expanded view with full context and history
 4. **Acknowledge Controls**: Per-alert and bulk actions
 5. **Silence Controls**: Per-alert and global silence
@@ -344,7 +344,7 @@ Combined with Sections 7.3.3 and 7.3.9 (unacknowledged alerts flash, acknowledge
 
 The "oldest first" ordering within a group ensures the longest-standing alert is most prominent — the one the operator has been ignoring longest demands the most attention.
 
-An alternative "newest first" sort is available for reviewing recent alert activity.
+The sort order is fixed; marine alert lists are small enough that user-configurable sorting adds no value.
 
 ### 8.5 External Hardware API
 
@@ -434,7 +434,7 @@ GET /plugins/signalk-alert-manager/alerts/history?from=2026-01-01&to=2026-01-13
    - Persist across restarts
 
 4. **Basic Web UI**
-   - Alert list with filtering
+   - Alert list
    - Acknowledge/silence controls
    - Browser audio
 
