@@ -2,8 +2,7 @@
  * AlertApp - Root application component.
  *
  * Manages navigation between the alert list and detail views.
- * Renders alert-banner persistently, and switches between
- * alert-list and alert-detail based on user selection.
+ * Switches between alert-list and alert-detail based on user selection.
  */
 
 import { LitElement, html, css } from 'lit'
@@ -58,7 +57,6 @@ export class AlertApp extends LitElement {
   render() {
     return html`
       <h1>Alert Manager</h1>
-      <alert-banner></alert-banner>
       ${this.selectedAlertId
         ? html`<alert-detail alert-id=${this.selectedAlertId}></alert-detail>`
         : html`<alert-list></alert-list>`}
