@@ -379,10 +379,10 @@ describe('AlertDetail', () => {
       expect(ackBtnAfter.disabled).toBe(true)
     })
 
-    it('hides acknowledge button for caution priority', async () => {
+    it('shows acknowledge button for caution priority', async () => {
       const el = await createElement(makeAlert({ state: 'unacknowledged', priority: 'caution' }))
       const ackBtn = shadowQuery(el, 'button[data-action="acknowledge"]')
-      expect(ackBtn).toBeNull()
+      expect(ackBtn).not.toBeNull()
     })
 
     it('has aria-labels on action buttons', async () => {

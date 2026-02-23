@@ -175,14 +175,21 @@ export class AlertDetail extends LitElement {
     .actions button {
       min-height: 44px;
       min-width: 44px;
-      padding: 0.375rem 0.75rem;
+      padding: 0.375rem;
       border: 1px solid #ccc;
       border-radius: 4px;
       background: #fff;
-      font-size: 0.85rem;
-      font-weight: 600;
       cursor: pointer;
       touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .actions button svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
     }
 
     .actions button:hover:not(:disabled) {
@@ -403,7 +410,7 @@ export class AlertDetail extends LitElement {
     const colors = PRIORITY_COLORS[this.alert.priority]
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
-    const showAck = isUnacked && this.alert.priority !== 'caution'
+    const showAck = isUnacked
     const showSilence = isUnacked && !this.alert.silenced
 
     return html`
@@ -476,7 +483,9 @@ export class AlertDetail extends LitElement {
                         ?disabled=${this.actionInFlight}
                         @click=${this.onAcknowledge}
                       >
-                        Acknowledge
+                        <svg viewBox="0 0 24 24">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                        </svg>
                       </button>`
                     : nothing}
                   ${showSilence
@@ -486,7 +495,11 @@ export class AlertDetail extends LitElement {
                         ?disabled=${this.actionInFlight}
                         @click=${this.onSilence}
                       >
-                        Silence
+                        <svg viewBox="0 0 24 24">
+                          <path
+                            d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                          />
+                        </svg>
                       </button>`
                     : nothing}
                 </div>

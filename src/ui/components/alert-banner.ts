@@ -115,16 +115,22 @@ export class AlertBanner extends LitElement {
     .actions button {
       min-height: 44px;
       min-width: 44px;
-      padding: 0.375rem 0.75rem;
+      padding: 0.375rem;
       border: 1px solid #4caf50;
       border-radius: 4px;
       background: #fff;
       color: #2e7d32;
-      font-size: 0.8rem;
-      font-weight: 600;
       cursor: pointer;
       touch-action: manipulation;
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .actions button svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
     }
 
     .actions button:hover:not(:disabled) {
@@ -255,7 +261,7 @@ export class AlertBanner extends LitElement {
     const alert = this.topAlert
     const colors = PRIORITY_COLORS[alert.priority]
     const isUnacked = alert.state === 'unacknowledged' || alert.state === 'rtn-unacknowledged'
-    const showAck = isUnacked && alert.priority !== 'caution'
+    const showAck = isUnacked
 
     return html`
       <div
@@ -299,7 +305,9 @@ export class AlertBanner extends LitElement {
                   ?disabled=${this.actionInFlight}
                   @click=${this.onAcknowledge}
                 >
-                  Acknowledge
+                  <svg viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                  </svg>
                 </button>
               </div>
             `
