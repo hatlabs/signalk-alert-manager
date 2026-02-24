@@ -490,17 +490,6 @@ export class AlertDetail extends LitElement {
           ${showAck || showSilence
             ? html`
                 <div class="actions">
-                  ${showAck
-                    ? html`<button
-                        data-action="acknowledge"
-                        title="Acknowledge"
-                        aria-label="Acknowledge: ${this.alert.message}"
-                        ?disabled=${this.actionInFlight}
-                        @click=${this.onAcknowledge}
-                      >
-                        <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
-                      </button>`
-                    : nothing}
                   ${showSilence
                     ? html`<button
                         data-action="silence"
@@ -510,6 +499,17 @@ export class AlertDetail extends LitElement {
                         @click=${this.onSilence}
                       >
                         <svg viewBox="0 0 24 24"><path d=${ICON_SILENCE} /></svg>
+                      </button>`
+                    : nothing}
+                  ${showAck
+                    ? html`<button
+                        data-action="acknowledge"
+                        title="Acknowledge"
+                        aria-label="Acknowledge: ${this.alert.message}"
+                        ?disabled=${this.actionInFlight}
+                        @click=${this.onAcknowledge}
+                      >
+                        <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
                       </button>`
                     : nothing}
                 </div>
