@@ -385,6 +385,19 @@ describe('AlertDetail', () => {
       expect(ackBtn).not.toBeNull()
     })
 
+    it('renders silence button before acknowledge button in DOM order', async () => {
+      const el = await createElement(
+        makeAlert({ state: 'unacknowledged', priority: 'alarm', silenced: false })
+      )
+      const buttons = shadowQueryAll(el, 'button[data-action]')
+      const actions = buttons.map((b) => b.getAttribute('data-action'))
+      const silenceIdx = actions.indexOf('silence')
+      const ackIdx = actions.indexOf('acknowledge')
+      expect(silenceIdx).toBeGreaterThanOrEqual(0)
+      expect(ackIdx).toBeGreaterThanOrEqual(0)
+      expect(silenceIdx).toBeLessThan(ackIdx)
+    })
+
     it('has aria-labels on action buttons', async () => {
       const el = await createElement(
         makeAlert({ state: 'unacknowledged', priority: 'alarm', silenced: false })
