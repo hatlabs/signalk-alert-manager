@@ -310,6 +310,12 @@ export interface PluginConfig {
     /** Minimum priority that triggers audible alerts: 'off', 'emergency', 'alarm', or 'warning' (default: 'warning') */
     minAudiblePriority?: 'off' | 'emergency' | 'alarm' | 'warning'
   }
+
+  /** Developer/testing settings */
+  dev?: {
+    /** Show the simulation button in the alert list toolbar (default: false) */
+    enableSimulation?: boolean
+  }
 }
 
 // =============================================================================

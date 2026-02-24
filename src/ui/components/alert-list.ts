@@ -5,14 +5,17 @@
  * elements for each alert.
  */
 
-import { LitElement, html, css } from 'lit'
+import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
 import { AudioService } from '../services/audio-service.js'
+import { SimulationService } from '../services/simulation-service.js'
 
 export class AlertList extends LitElement {
   static properties = {
-    alerts: { state: true }
+    alerts: { state: true },
+    simulationRunning: { state: true },
+    simulationEnabled: { state: true }
   }
 
   static styles = css`
@@ -59,6 +62,39 @@ export class AlertList extends LitElement {
       cursor: not-allowed;
     }
 
+    .toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    button[data-action='simulate'] {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #e65100;
+      border-radius: 4px;
+      background: #fff;
+      color: #e65100;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    button[data-action='simulate']:hover {
+      background: #fff3e0;
+    }
+
+    button[data-action='simulate'].sim-active {
+      background: #e65100;
+      color: #fff;
+    }
+
+    button[data-action='simulate'].sim-active:hover {
+      background: #bf360c;
+    }
+
     .empty {
       text-align: center;
       padding: 2rem;
@@ -73,13 +109,18 @@ export class AlertList extends LitElement {
   `
 
   declare alerts: Alert[]
+  declare simulationRunning: boolean
+  declare simulationEnabled: boolean
 
   private service = new AlertService()
   private audioService = new AudioService()
+  private simulation = new SimulationService(() => this.service.getAlerts())
 
   constructor() {
     super()
     this.alerts = []
+    this.simulationRunning = false
+    this.simulationEnabled = false
   }
 
   connectedCallback(): void {
@@ -96,16 +137,26 @@ export class AlertList extends LitElement {
   private fetchUiConfig(): void {
     const VALID_PRIORITIES = new Set(['off', 'emergency', 'alarm', 'warning'])
     fetch('/plugins/signalk-alert-manager/config/ui')
-      .then((res) => (res.ok ? (res.json() as Promise<{ minAudiblePriority: string }>) : null))
+      .then((res) =>
+        res.ok
+          ? (res.json() as Promise<{
+              minAudiblePriority?: string
+              enableSimulation?: boolean
+            }>)
+          : null
+      )
       .then((config) => {
         if (config?.minAudiblePriority && VALID_PRIORITIES.has(config.minAudiblePriority)) {
           this.audioService.setMinAudiblePriority(
             config.minAudiblePriority as 'off' | 'emergency' | 'alarm' | 'warning'
           )
         }
+        if (config?.enableSimulation === true) {
+          this.simulationEnabled = true
+        }
       })
       .catch(() => {
-        // Config fetch failed; audio uses default (warning)
+        // Config fetch failed; defaults apply
       })
   }
 
@@ -114,6 +165,7 @@ export class AlertList extends LitElement {
     this.service.removeEventListener('change', this.onServiceChange)
     this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
+    this.simulation.stop()
     this.service.disconnect()
     this.audioService.dispose()
   }
@@ -145,6 +197,15 @@ export class AlertList extends LitElement {
       )
   }
 
+  private onToggleSimulation(): void {
+    if (this.simulation.running) {
+      this.simulation.stop()
+    } else {
+      this.simulation.start()
+    }
+    this.simulationRunning = this.simulation.running
+  }
+
   private onSilenceAll(): void {
     this.service.silenceAll().catch(() => {
       // Error handling — state will remain unchanged via WebSocket
@@ -157,13 +218,24 @@ export class AlertList extends LitElement {
         <span class="alert-count"
           >${String(this.alerts.length)} alert${this.alerts.length !== 1 ? 's' : ''}</span
         >
-        <button
-          data-action="silence-all"
-          ?disabled=${!this.hasUnsilencedUnacknowledged()}
-          @click=${this.onSilenceAll}
-        >
-          Silence All
-        </button>
+        <div class="toolbar-actions">
+          ${this.simulationEnabled
+            ? html`<button
+                data-action="simulate"
+                class=${this.simulationRunning ? 'sim-active' : ''}
+                @click=${this.onToggleSimulation}
+              >
+                ${this.simulationRunning ? 'Stop Sim' : 'Simulate'}
+              </button>`
+            : nothing}
+          <button
+            data-action="silence-all"
+            ?disabled=${!this.hasUnsilencedUnacknowledged()}
+            @click=${this.onSilenceAll}
+          >
+            Silence All
+          </button>
+        </div>
       </div>
 
       ${this.alerts.length === 0

@@ -487,6 +487,66 @@ describe('AlertList', () => {
     })
   })
 
+  describe('simulation button', () => {
+    it('does not render simulate button by default', async () => {
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const btn = shadowQuery(el, '[data-action="simulate"]')
+      expect(btn).toBeNull()
+    })
+
+    it('renders simulate button when simulationEnabled is true', async () => {
+      const el = document.createElement('alert-list') as HTMLElement & {
+        simulationEnabled: boolean
+        updateComplete: Promise<boolean>
+      }
+      el.simulationEnabled = true
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const btn = shadowQuery(el, '[data-action="simulate"]')
+      expect(btn).not.toBeNull()
+      expect(btn?.textContent).toContain('Simulate')
+    })
+
+    it('toggles button text and class on click', async () => {
+      const el = document.createElement('alert-list') as HTMLElement & {
+        simulationEnabled: boolean
+        updateComplete: Promise<boolean>
+      }
+      el.simulationEnabled = true
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const btn = shadowQuery(el, '[data-action="simulate"]') as HTMLButtonElement
+      expect(btn.classList.contains('sim-active')).toBe(false)
+
+      btn.click()
+      await updateComplete(el)
+
+      const btnAfter = shadowQuery(el, '[data-action="simulate"]') as HTMLButtonElement
+      expect(btnAfter.textContent).toContain('Stop Sim')
+      expect(btnAfter.classList.contains('sim-active')).toBe(true)
+
+      btnAfter.click()
+      await updateComplete(el)
+
+      const btnFinal = shadowQuery(el, '[data-action="simulate"]') as HTMLButtonElement
+      expect(btnFinal.textContent).toContain('Simulate')
+      expect(btnFinal.classList.contains('sim-active')).toBe(false)
+    })
+  })
+
   describe('event handling', () => {
     it('calls service acknowledgeAlert on alert-acknowledge event', async () => {
       const alerts = [makeAlert({ id: 'evt-1', state: 'unacknowledged', priority: 'warning' })]

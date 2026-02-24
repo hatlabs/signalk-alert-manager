@@ -120,6 +120,18 @@ const configSchema = {
           default: 90
         }
       }
+    },
+    dev: {
+      type: 'object',
+      title: 'Developer Settings',
+      properties: {
+        enableSimulation: {
+          type: 'boolean',
+          title: 'Enable Simulation',
+          description: 'Show the alert simulation button in the UI toolbar',
+          default: false
+        }
+      }
     }
   }
 }
@@ -127,6 +139,7 @@ const configSchema = {
 /** UI config exposed to the browser via GET /config/ui. */
 interface UiConfig {
   minAudiblePriority: 'off' | 'emergency' | 'alarm' | 'warning'
+  enableSimulation: boolean
 }
 
 /** Resolve PluginConfig to AlertManagerConfig with defaults. */
@@ -150,7 +163,8 @@ function resolveConfig(pluginConfig: PluginConfig): AlertManagerConfig {
 /** Resolve UI-only config from plugin config. */
 function resolveUiConfig(pluginConfig: PluginConfig): UiConfig {
   return {
-    minAudiblePriority: pluginConfig.audio?.minAudiblePriority ?? 'warning'
+    minAudiblePriority: pluginConfig.audio?.minAudiblePriority ?? 'warning',
+    enableSimulation: pluginConfig.dev?.enableSimulation ?? false
   }
 }
 
@@ -176,7 +190,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
   let alertStore: AlertStore | undefined
   let historyStore: HistoryStore | undefined
   let readyPromise: Promise<void> | undefined
-  let uiConfig: UiConfig = { minAudiblePriority: 'warning' }
+  let uiConfig: UiConfig = { minAudiblePriority: 'warning', enableSimulation: false }
   const alertTypes = new Map<string, AlertDefinition>()
 
   const plugin: AlertManagerPlugin = {
