@@ -58,7 +58,7 @@ export class AlertApp extends LitElement {
     return html`
       <h1>Alert Manager</h1>
       ${this.selectedAlertId
-        ? html`<alert-detail alert-id=${this.selectedAlertId}></alert-detail>`
+        ? html`<alert-detail alert-id="${this.selectedAlertId}"></alert-detail>`
         : html`<alert-list></alert-list>`}
     `
   }

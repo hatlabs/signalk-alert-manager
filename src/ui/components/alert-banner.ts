@@ -8,6 +8,7 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
+import { ICON_ACKNOWLEDGE } from '../styles/icons.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
 import { formatTime } from '../utils/format.js'
 
@@ -301,13 +302,12 @@ export class AlertBanner extends LitElement {
               <div class="actions">
                 <button
                   data-action="acknowledge"
+                  title="Acknowledge"
                   aria-label="Acknowledge: ${alert.message}"
                   ?disabled=${this.actionInFlight}
                   @click=${this.onAcknowledge}
                 >
-                  <svg viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                  </svg>
+                  <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
                 </button>
               </div>
             `
