@@ -108,7 +108,9 @@ export class AudioService {
     this.removeGestureListener()
     this.stopTone()
     if (this.audioCtx && this.audioCtx.state !== 'closed') {
-      this.audioCtx.close()
+      this.audioCtx.close().catch(() => {
+        // Context may already be closed by the browser
+      })
     }
   }
 
@@ -238,6 +240,8 @@ export class AudioService {
 
     const ctx = this.audioCtx
     const gainParam = this.currentGain.gain
+    // Clear stale automation events to prevent unbounded memory growth
+    gainParam.cancelScheduledValues(ctx.currentTime)
     const riseS = pattern.riseMs / 1000
     const fallS = pattern.fallMs / 1000
     const pulseS = pattern.pulseDurationMs / 1000

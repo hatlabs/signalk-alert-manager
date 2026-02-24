@@ -24,7 +24,7 @@ const DEFAULT_CONFIG: AlertManagerConfig = {
   retentionDays: 90
 }
 
-const DEFAULT_UI_CONFIG = { minAudiblePriority: 'warning' }
+const DEFAULT_UI_CONFIG = { minAudiblePriority: 'warning' as const }
 
 class MockHistoryStore implements IHistoryStore {
   entries: HistoryEntry[] = []

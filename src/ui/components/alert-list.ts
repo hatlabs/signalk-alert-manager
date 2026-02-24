@@ -94,10 +94,11 @@ export class AlertList extends LitElement {
   }
 
   private fetchUiConfig(): void {
+    const VALID_PRIORITIES = new Set(['off', 'emergency', 'alarm', 'warning'])
     fetch('/plugins/signalk-alert-manager/config/ui')
       .then((res) => (res.ok ? (res.json() as Promise<{ minAudiblePriority: string }>) : null))
       .then((config) => {
-        if (config?.minAudiblePriority) {
+        if (config?.minAudiblePriority && VALID_PRIORITIES.has(config.minAudiblePriority)) {
           this.audioService.setMinAudiblePriority(
             config.minAudiblePriority as 'off' | 'emergency' | 'alarm' | 'warning'
           )
@@ -118,8 +119,9 @@ export class AlertList extends LitElement {
   }
 
   private onServiceChange = (): void => {
-    this.alerts = this.service.getAlerts()
-    this.audioService.update(this.service.getAlerts())
+    const alerts = this.service.getAlerts()
+    this.alerts = alerts
+    this.audioService.update(alerts)
   }
 
   private onAlertAcknowledge = (e: CustomEvent<{ id: string }>): void => {

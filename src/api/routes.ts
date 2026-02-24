@@ -39,7 +39,7 @@ const MAX_MESSAGE_LENGTH = 1000
 export interface RouteDependencies {
   getAlertManager(): AlertManager | undefined
   getHistoryStore(): IHistoryStore | undefined
-  getUiConfig(): { minAudiblePriority: string }
+  getUiConfig(): { minAudiblePriority: 'off' | 'emergency' | 'alarm' | 'warning' }
 }
 
 /**

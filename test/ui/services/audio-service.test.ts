@@ -64,7 +64,12 @@ class MockOscillatorNode {
 }
 
 class MockGainNode {
-  gain = { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }
+  gain = {
+    value: 0,
+    setValueAtTime: vi.fn(),
+    linearRampToValueAtTime: vi.fn(),
+    cancelScheduledValues: vi.fn()
+  }
   connectedTo: unknown = null
 
   connect(destination: unknown): void {
@@ -404,6 +409,27 @@ describe('AudioService', () => {
       service.dispose()
     })
 
+    it('clears stale automation events before each burst', async () => {
+      vi.useFakeTimers()
+      const AudioService = await importAudioService()
+      const service = new AudioService()
+      simulateUserGesture()
+
+      service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
+
+      const gainNode = mockAudioContext.gainNodes[0]
+
+      // First burst calls cancelScheduledValues
+      expect(gainNode.gain.cancelScheduledValues).toHaveBeenCalledTimes(1)
+
+      // Advance to trigger second burst
+      vi.advanceTimersByTime(3200)
+      expect(gainNode.gain.cancelScheduledValues).toHaveBeenCalledTimes(2)
+
+      vi.useRealTimers()
+      service.dispose()
+    })
+
     it('stopTone clears burst scheduling', async () => {
       vi.useFakeTimers()
       const service = await createUnlockedService()
@@ -581,6 +607,54 @@ describe('AudioService', () => {
       service.dispose()
 
       expect(mockAudioContext.state).toBe('closed')
+    })
+
+    it('handles AudioContext.close() rejection gracefully', async () => {
+      mockAudioContext.close = () => Promise.reject(new Error('already closed'))
+      const service = await createUnlockedService()
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+
+      // Should not throw
+      expect(() => service.dispose()).not.toThrow()
+    })
+  })
+
+  describe('concurrent updates', () => {
+    it('handles rapid priority changes without orphaned oscillators', async () => {
+      const service = await createUnlockedService()
+
+      service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+      service.update([
+        makeAlert({ priority: 'emergency', state: 'unacknowledged', silenced: false })
+      ])
+
+      // All previous oscillators should be stopped
+      for (let i = 0; i < mockAudioContext.oscillators.length - 1; i++) {
+        expect(mockAudioContext.oscillators[i].stopped).toBe(true)
+      }
+      // Only the last one should be active
+      const last = mockAudioContext.oscillators[mockAudioContext.oscillators.length - 1]
+      expect(last.started).toBe(true)
+      expect(last.stopped).toBe(false)
+      expect(last.frequency.value).toBe(880)
+
+      service.dispose()
+    })
+
+    it('handles rapid update then clear without leftover audio', async () => {
+      const service = await createUnlockedService()
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+      service.update([])
+
+      for (const osc of mockAudioContext.oscillators) {
+        expect(osc.stopped).toBe(true)
+      }
+
+      service.dispose()
     })
   })
 })
