@@ -8,7 +8,7 @@ import { FakeTimerFunctions } from '../helpers/FakeTimerFunctions.js'
 
 const defaultConfig: AlertManagerConfig = {
   escalation: { enabled: true, timeoutSeconds: 300 },
-  silencing: { alarmMaxSeconds: 30, emergencyMaxSeconds: 10 },
+  silencing: { defaultMaxSilenceSeconds: 120, emergencyMaxSilenceSeconds: 30 },
   sourceTimeout: { markStaleAfterSeconds: 60 }
 }
 

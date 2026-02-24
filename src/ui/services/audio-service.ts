@@ -1,12 +1,15 @@
 /**
  * AudioService
  *
- * Synthesizes alert tones using the Web Audio API.
- * Different frequencies and patterns per IMO priority level:
- * - Emergency: continuous high tone (880 Hz)
- * - Alarm: continuous medium tone (660 Hz)
- * - Warning: momentary low tone (440 Hz, 1.5s)
+ * Synthesizes alert tones using the Web Audio API with IEC 60601-1-8
+ * inspired pulsed patterns. Each priority level has a distinct pulse
+ * pattern that conveys urgency through pulse count, timing, and frequency:
+ * - Emergency: 5-pulse rapid burst at 880 Hz
+ * - Alarm: 3-pulse triplet at 660 Hz
+ * - Warning: 2-pulse double chime at 440 Hz
  * - Caution: no audible indicator
+ *
+ * Pulses are created by gain envelope ramping (oscillator runs continuously).
  *
  * Handles browser autoplay policy by deferring AudioContext creation
  * until the first user gesture on the document.
@@ -15,49 +18,77 @@
 import type { Alert, AlertPriority } from '../../types.js'
 import { PRIORITY_ORDER } from '../styles/priority.js'
 
+type MinAudiblePriority = 'off' | AlertPriority
+
 interface AudioServiceOptions {
-  enabled?: boolean
+  minAudiblePriority?: MinAudiblePriority
 }
 
-/** Frequency in Hz for each audible priority level. */
-const TONE_FREQUENCIES: Partial<Record<AlertPriority, number>> = {
-  emergency: 880,
-  alarm: 660,
-  warning: 440
+interface TonePattern {
+  frequency: number
+  pulseCount: number
+  pulseDurationMs: number
+  pulseGapMs: number
+  interBurstMs: number
+  riseMs: number
+  fallMs: number
 }
 
-/** Duration in ms for momentary tones (warning). 0 = continuous. */
-const TONE_DURATION: Partial<Record<AlertPriority, number>> = {
-  emergency: 0,
-  alarm: 0,
-  warning: 1500
+const TONE_PATTERNS: Partial<Record<AlertPriority, TonePattern>> = {
+  emergency: {
+    frequency: 880,
+    pulseCount: 5,
+    pulseDurationMs: 100,
+    pulseGapMs: 100,
+    interBurstMs: 500,
+    riseMs: 20,
+    fallMs: 20
+  },
+  alarm: {
+    frequency: 660,
+    pulseCount: 3,
+    pulseDurationMs: 150,
+    pulseGapMs: 150,
+    interBurstMs: 1200,
+    riseMs: 20,
+    fallMs: 20
+  },
+  warning: {
+    frequency: 440,
+    pulseCount: 2,
+    pulseDurationMs: 200,
+    pulseGapMs: 200,
+    interBurstMs: 2500,
+    riseMs: 20,
+    fallMs: 20
+  }
 }
 
 const DEFAULT_GAIN = 0.3
 
 export class AudioService {
-  private enabled: boolean
+  private minAudiblePriority: MinAudiblePriority
   private audioCtx: AudioContext | null = null
   private currentOscillator: OscillatorNode | null = null
   private currentGain: GainNode | null = null
   private currentPriority: AlertPriority | null = null
-  private momentaryTimer: ReturnType<typeof setTimeout> | null = null
+  private burstTimer: ReturnType<typeof setTimeout> | null = null
   private lastAlerts: Alert[] = []
   private userHasInteracted = false
   private gestureHandler: (() => void) | null = null
 
   constructor(options?: AudioServiceOptions) {
-    this.enabled = options?.enabled !== false
+    this.minAudiblePriority = options?.minAudiblePriority ?? 'warning'
     this.listenForUserGesture()
   }
 
   isEnabled(): boolean {
-    return this.enabled
+    return this.minAudiblePriority !== 'off'
   }
 
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled
-    if (!enabled) {
+  setMinAudiblePriority(priority: MinAudiblePriority): void {
+    this.minAudiblePriority = priority
+    if (priority === 'off') {
       this.stopTone()
     } else {
       this.evaluate(this.lastAlerts)
@@ -110,7 +141,7 @@ export class AudioService {
   }
 
   private evaluate(alerts: Alert[]): void {
-    if (!this.enabled) {
+    if (this.minAudiblePriority === 'off') {
       return
     }
 
@@ -122,8 +153,8 @@ export class AudioService {
       return
     }
 
-    const freq = TONE_FREQUENCIES[audibleAlert.priority]
-    if (freq === undefined) {
+    const pattern = TONE_PATTERNS[audibleAlert.priority]
+    if (!pattern) {
       // Caution — no audible
       this.stopTone()
       return
@@ -141,14 +172,21 @@ export class AudioService {
 
     // Stop any existing tone and start the new one
     this.stopTone()
-    this.playTone(audibleAlert.priority, freq)
+    this.playTone(audibleAlert.priority, pattern)
   }
 
   private findHighestAudibleAlert(alerts: Alert[]): Alert | null {
+    if (this.minAudiblePriority === 'off') return null
+
+    const threshold = PRIORITY_ORDER[this.minAudiblePriority]
     let best: Alert | null = null
     for (const alert of alerts) {
       const isUnacked = alert.state === 'unacknowledged' || alert.state === 'rtn-unacknowledged'
       if (!isUnacked || alert.silenced) {
+        continue
+      }
+      // Only consider alerts at or above the minimum audible priority
+      if (PRIORITY_ORDER[alert.priority] > threshold) {
         continue
       }
       if (!best || PRIORITY_ORDER[alert.priority] < PRIORITY_ORDER[best.priority]) {
@@ -165,7 +203,7 @@ export class AudioService {
     return this.audioCtx
   }
 
-  private playTone(priority: AlertPriority, frequency: number): void {
+  private playTone(priority: AlertPriority, pattern: TonePattern): void {
     const ctx = this.ensureContext()
 
     // Resume if suspended — the context is created after user gesture,
@@ -178,12 +216,12 @@ export class AudioService {
     }
 
     const gain = ctx.createGain()
-    gain.gain.value = DEFAULT_GAIN
+    gain.gain.setValueAtTime(0, ctx.currentTime)
     gain.connect(ctx.destination)
 
     const osc = ctx.createOscillator()
     osc.type = 'sine'
-    osc.frequency.value = frequency
+    osc.frequency.value = pattern.frequency
     osc.connect(gain)
     osc.start()
 
@@ -191,18 +229,52 @@ export class AudioService {
     this.currentGain = gain
     this.currentPriority = priority
 
-    const duration = TONE_DURATION[priority]
-    if (duration && duration > 0) {
-      this.momentaryTimer = setTimeout(() => {
-        this.stopTone()
-      }, duration)
+    this.scheduleBurst(pattern)
+  }
+
+  /** Schedule one burst of pulses, then repeat after the inter-burst gap. */
+  private scheduleBurst(pattern: TonePattern): void {
+    if (!this.currentGain || !this.audioCtx) return
+
+    const ctx = this.audioCtx
+    const gainParam = this.currentGain.gain
+    const riseS = pattern.riseMs / 1000
+    const fallS = pattern.fallMs / 1000
+    const pulseS = pattern.pulseDurationMs / 1000
+    const gapS = pattern.pulseGapMs / 1000
+
+    let t = ctx.currentTime
+
+    for (let i = 0; i < pattern.pulseCount; i++) {
+      // Rise
+      gainParam.setValueAtTime(0, t)
+      gainParam.linearRampToValueAtTime(DEFAULT_GAIN, t + riseS)
+      // Hold at peak until fall starts
+      t += pulseS - fallS
+      // Fall
+      gainParam.setValueAtTime(DEFAULT_GAIN, t)
+      gainParam.linearRampToValueAtTime(0, t + fallS)
+      t += fallS
+      // Gap between pulses (except after last pulse)
+      if (i < pattern.pulseCount - 1) {
+        t += gapS
+      }
     }
+
+    // Total burst duration from start to end of last pulse
+    const burstDurationMs =
+      pattern.pulseCount * pattern.pulseDurationMs + (pattern.pulseCount - 1) * pattern.pulseGapMs
+
+    // Schedule next burst after inter-burst interval
+    this.burstTimer = setTimeout(() => {
+      this.scheduleBurst(pattern)
+    }, burstDurationMs + pattern.interBurstMs)
   }
 
   private stopTone(): void {
-    if (this.momentaryTimer !== null) {
-      clearTimeout(this.momentaryTimer)
-      this.momentaryTimer = null
+    if (this.burstTimer !== null) {
+      clearTimeout(this.burstTimer)
+      this.burstTimer = null
     }
 
     if (this.currentOscillator) {

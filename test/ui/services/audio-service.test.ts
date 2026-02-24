@@ -2,7 +2,7 @@
  * AudioService Tests
  *
  * Tests for browser audio playback of alert notifications.
- * Uses Web Audio API synthesis with different tones per priority level.
+ * Uses Web Audio API synthesis with pulsed tone patterns per priority level.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -64,7 +64,7 @@ class MockOscillatorNode {
 }
 
 class MockGainNode {
-  gain = { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }
+  gain = { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }
   connectedTo: unknown = null
 
   connect(destination: unknown): void {
@@ -136,7 +136,9 @@ async function importAudioService() {
 }
 
 /** Create a service and simulate a user gesture so audio is unlocked. */
-async function createUnlockedService(options?: { enabled?: boolean }) {
+async function createUnlockedService(options?: {
+  minAudiblePriority?: 'off' | 'emergency' | 'alarm' | 'warning' | 'caution'
+}) {
   const AudioService = await importAudioService()
   const service = new AudioService(options)
   simulateUserGesture()
@@ -149,15 +151,21 @@ async function createUnlockedService(options?: { enabled?: boolean }) {
 
 describe('AudioService', () => {
   describe('construction', () => {
-    it('starts with audio enabled', async () => {
+    it('defaults to warning as minimum audible priority', async () => {
       const service = await createUnlockedService()
       expect(service.isEnabled()).toBe(true)
       service.dispose()
     })
 
-    it('can be constructed with audio disabled', async () => {
-      const service = await createUnlockedService({ enabled: false })
+    it('can be constructed with audio disabled via off', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'off' })
       expect(service.isEnabled()).toBe(false)
+      service.dispose()
+    })
+
+    it('can be constructed with emergency-only audio', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'emergency' })
+      expect(service.isEnabled()).toBe(true)
       service.dispose()
     })
   })
@@ -203,14 +211,14 @@ describe('AudioService', () => {
   })
 
   describe('enable/disable', () => {
-    it('setEnabled(false) stops any playing tone', async () => {
+    it('setMinAudiblePriority(off) stops any playing tone', async () => {
       const service = await createUnlockedService()
 
       service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
 
       expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
 
-      service.setEnabled(false)
+      service.setMinAudiblePriority('off')
       expect(service.isEnabled()).toBe(false)
       for (const osc of mockAudioContext.oscillators) {
         expect(osc.stopped).toBe(true)
@@ -219,21 +227,63 @@ describe('AudioService', () => {
       service.dispose()
     })
 
-    it('setEnabled(true) re-evaluates alerts and plays if needed', async () => {
-      const service = await createUnlockedService({ enabled: false })
+    it('setMinAudiblePriority(warning) re-evaluates alerts and plays if needed', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'off' })
 
       service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
       expect(mockAudioContext.oscillators.length).toBe(0)
 
-      service.setEnabled(true)
+      service.setMinAudiblePriority('warning')
       expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
 
       service.dispose()
     })
   })
 
+  describe('minAudiblePriority filtering', () => {
+    it('emergency-only suppresses alarm and warning tones', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'emergency' })
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+      expect(mockAudioContext.oscillators.length).toBe(0)
+
+      service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
+      expect(mockAudioContext.oscillators.length).toBe(0)
+
+      service.update([
+        makeAlert({ priority: 'emergency', state: 'unacknowledged', silenced: false })
+      ])
+      expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
+
+      service.dispose()
+    })
+
+    it('alarm threshold suppresses warning but allows alarm and emergency', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'alarm' })
+
+      service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
+      expect(mockAudioContext.oscillators.length).toBe(0)
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+      expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
+
+      service.dispose()
+    })
+
+    it('off suppresses all audio', async () => {
+      const service = await createUnlockedService({ minAudiblePriority: 'off' })
+
+      service.update([
+        makeAlert({ priority: 'emergency', state: 'unacknowledged', silenced: false })
+      ])
+      expect(mockAudioContext.oscillators.length).toBe(0)
+
+      service.dispose()
+    })
+  })
+
   describe('priority tones', () => {
-    it('plays continuous tone for emergency', async () => {
+    it('plays pulsed tone for emergency at 880 Hz', async () => {
       const service = await createUnlockedService()
 
       service.update([
@@ -243,12 +293,12 @@ describe('AudioService', () => {
       expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
       const osc = mockAudioContext.oscillators[0]
       expect(osc.started).toBe(true)
-      expect(osc.frequency.value).toBeGreaterThan(600)
+      expect(osc.frequency.value).toBe(880)
 
       service.dispose()
     })
 
-    it('plays tone for alarm', async () => {
+    it('plays pulsed tone for alarm at 660 Hz', async () => {
       const service = await createUnlockedService()
 
       service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
@@ -256,27 +306,21 @@ describe('AudioService', () => {
       expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
       const osc = mockAudioContext.oscillators[0]
       expect(osc.started).toBe(true)
+      expect(osc.frequency.value).toBe(660)
 
       service.dispose()
     })
 
-    it('plays momentary tone for warning', async () => {
-      vi.useFakeTimers()
-      const AudioService = await importAudioService()
-      const service = new AudioService()
-      simulateUserGesture()
+    it('plays pulsed tone for warning at 440 Hz', async () => {
+      const service = await createUnlockedService()
 
       service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
 
       expect(mockAudioContext.oscillators.length).toBeGreaterThan(0)
       const osc = mockAudioContext.oscillators[0]
       expect(osc.started).toBe(true)
+      expect(osc.frequency.value).toBe(440)
 
-      // After momentary duration, oscillator should stop
-      vi.advanceTimersByTime(2000)
-      expect(osc.stopped).toBe(true)
-
-      vi.useRealTimers()
       service.dispose()
     })
 
@@ -308,6 +352,78 @@ describe('AudioService', () => {
 
       expect(frequencies['emergency']).toBeGreaterThan(frequencies['alarm']!)
       expect(frequencies['alarm']).toBeGreaterThan(frequencies['warning']!)
+    })
+  })
+
+  describe('pulse envelope', () => {
+    it('starts gain at zero and schedules rise/fall ramps', async () => {
+      const service = await createUnlockedService()
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+
+      expect(mockAudioContext.gainNodes.length).toBeGreaterThan(0)
+      const gainNode = mockAudioContext.gainNodes[0]
+
+      // Gain initialized to 0 via setValueAtTime
+      expect(gainNode.gain.setValueAtTime).toHaveBeenCalled()
+      // Rise and fall ramps scheduled
+      expect(gainNode.gain.linearRampToValueAtTime).toHaveBeenCalled()
+
+      // Should have multiple setValueAtTime/linearRamp pairs for pulse envelope
+      // Alarm has 3 pulses: each pulse has setValueAtTime(0) + ramp up + setValueAtTime(peak) + ramp down
+      // Plus the initial setValueAtTime(0) in playTone
+      const setValueCalls = gainNode.gain.setValueAtTime.mock.calls.length
+      const rampCalls = gainNode.gain.linearRampToValueAtTime.mock.calls.length
+      expect(setValueCalls).toBeGreaterThanOrEqual(7) // 1 init + 3 pulses * 2
+      expect(rampCalls).toBeGreaterThanOrEqual(6) // 3 pulses * 2 (rise + fall)
+
+      service.dispose()
+    })
+
+    it('schedules repeating bursts via timer', async () => {
+      vi.useFakeTimers()
+      const AudioService = await importAudioService()
+      const service = new AudioService()
+      simulateUserGesture()
+
+      service.update([makeAlert({ priority: 'warning', state: 'unacknowledged', silenced: false })])
+
+      const gainNode = mockAudioContext.gainNodes[0]
+      const initialRampCount = gainNode.gain.linearRampToValueAtTime.mock.calls.length
+
+      // Advance past burst duration + inter-burst interval to trigger next burst
+      // Warning: 2 pulses * 200ms + 1 gap * 200ms + 2500ms inter-burst = 3100ms
+      vi.advanceTimersByTime(3200)
+
+      // More ramp calls should have been scheduled for the next burst
+      expect(gainNode.gain.linearRampToValueAtTime.mock.calls.length).toBeGreaterThan(
+        initialRampCount
+      )
+
+      vi.useRealTimers()
+      service.dispose()
+    })
+
+    it('stopTone clears burst scheduling', async () => {
+      vi.useFakeTimers()
+      const service = await createUnlockedService()
+
+      service.update([makeAlert({ priority: 'alarm', state: 'unacknowledged', silenced: false })])
+
+      const gainNode = mockAudioContext.gainNodes[0]
+
+      // Stop the tone (e.g., by clearing alerts)
+      service.update([])
+
+      const rampCountAfterStop = gainNode.gain.linearRampToValueAtTime.mock.calls.length
+
+      // Advance well past any burst interval — no new ramps should be scheduled
+      vi.advanceTimersByTime(5000)
+
+      expect(gainNode.gain.linearRampToValueAtTime.mock.calls.length).toBe(rampCountAfterStop)
+
+      vi.useRealTimers()
+      service.dispose()
     })
   })
 

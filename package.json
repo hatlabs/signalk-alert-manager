@@ -5,6 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "public"
+  ],
   "keywords": [
     "signalk-node-server-plugin",
     "signalk-category-utility",

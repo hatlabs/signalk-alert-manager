@@ -19,10 +19,12 @@ import { registerRoutes, type RouteDependencies } from '../../src/api/routes.js'
 
 const DEFAULT_CONFIG: AlertManagerConfig = {
   escalation: { enabled: false, timeoutSeconds: 300 },
-  silencing: { alarmMaxSeconds: 30, emergencyMaxSeconds: 10 },
+  silencing: { defaultMaxSilenceSeconds: 120, emergencyMaxSilenceSeconds: 30 },
   sourceTimeout: { markStaleAfterSeconds: 60 },
   retentionDays: 90
 }
+
+const DEFAULT_UI_CONFIG = { minAudiblePriority: 'warning' }
 
 class MockHistoryStore implements IHistoryStore {
   entries: HistoryEntry[] = []
@@ -90,7 +92,8 @@ function createTestContext(): TestContext {
 
   const deps: RouteDependencies = {
     getAlertManager: () => manager,
-    getHistoryStore: () => historyStore
+    getHistoryStore: () => historyStore,
+    getUiConfig: () => DEFAULT_UI_CONFIG
   }
   registerRoutes(app, deps)
 
@@ -740,6 +743,19 @@ describe('REST API Routes', () => {
   })
 
   // =========================================================================
+  // GET /config/ui
+  // =========================================================================
+
+  describe('GET /config/ui', () => {
+    it('should return UI config', async () => {
+      const res = await fetch(`${ctx.baseUrl}/config/ui`)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { minAudiblePriority: string }
+      expect(body.minAudiblePriority).toBe('warning')
+    })
+  })
+
+  // =========================================================================
   // 503 when not initialized
   // =========================================================================
 
@@ -753,7 +769,8 @@ describe('REST API Routes', () => {
       uninitApp.use(express.json())
       const deps: RouteDependencies = {
         getAlertManager: () => undefined,
-        getHistoryStore: () => undefined
+        getHistoryStore: () => undefined,
+        getUiConfig: () => DEFAULT_UI_CONFIG
       }
       registerRoutes(uninitApp, deps)
       uninitServer = uninitApp.listen(0)

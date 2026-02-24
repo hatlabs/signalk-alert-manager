@@ -90,6 +90,22 @@ export class AlertList extends LitElement {
     this.service.connect().catch(() => {
       // Connection failure; alerts stay empty until retry succeeds
     })
+    this.fetchUiConfig()
+  }
+
+  private fetchUiConfig(): void {
+    fetch('/plugins/signalk-alert-manager/config/ui')
+      .then((res) => (res.ok ? (res.json() as Promise<{ minAudiblePriority: string }>) : null))
+      .then((config) => {
+        if (config?.minAudiblePriority) {
+          this.audioService.setMinAudiblePriority(
+            config.minAudiblePriority as 'off' | 'emergency' | 'alarm' | 'warning'
+          )
+        }
+      })
+      .catch(() => {
+        // Config fetch failed; audio uses default (warning)
+      })
   }
 
   disconnectedCallback(): void {
