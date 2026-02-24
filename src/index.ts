@@ -41,6 +41,38 @@ export type {
 const configSchema = {
   type: 'object' as const,
   properties: {
+    audio: {
+      type: 'object',
+      title: 'Audio Settings',
+      properties: {
+        minAudiblePriority: {
+          type: 'string',
+          title: 'Minimum Audible Priority',
+          description:
+            'Lowest priority level that triggers browser audio alerts. Alerts below this priority are silent.',
+          default: 'warning',
+          enum: ['off', 'emergency', 'alarm', 'warning']
+        }
+      }
+    },
+    silencing: {
+      type: 'object',
+      title: 'Silencing Settings',
+      properties: {
+        defaultMaxSilenceSeconds: {
+          type: 'number',
+          title: 'Default Silence Duration (seconds)',
+          description: 'Maximum time a non-emergency alert can be silenced',
+          default: 120
+        },
+        emergencyMaxSilenceSeconds: {
+          type: 'number',
+          title: 'Emergency Silence Duration (seconds)',
+          description: 'Maximum time an emergency can be silenced',
+          default: 30
+        }
+      }
+    },
     escalation: {
       type: 'object',
       title: 'Escalation Settings',
@@ -62,24 +94,6 @@ const configSchema = {
               default: 300
             }
           }
-        }
-      }
-    },
-    silencing: {
-      type: 'object',
-      title: 'Silencing Settings',
-      properties: {
-        alarmMaxSeconds: {
-          type: 'number',
-          title: 'Alarm Silence Duration (seconds)',
-          description: 'Maximum time an alarm can be silenced',
-          default: 30
-        },
-        emergencyMaxSeconds: {
-          type: 'number',
-          title: 'Emergency Silence Duration (seconds)',
-          description: 'Maximum time an emergency can be silenced',
-          default: 10
         }
       }
     },
@@ -106,26 +120,13 @@ const configSchema = {
           default: 90
         }
       }
-    },
-    ui: {
-      type: 'object',
-      title: 'UI Settings',
-      properties: {
-        audioEnabled: {
-          type: 'boolean',
-          title: 'Enable Audio Alerts',
-          description: 'Play audio for unacknowledged alerts',
-          default: true
-        },
-        showBanner: {
-          type: 'boolean',
-          title: 'Show Alert Banner',
-          description: 'Display alert banner at top of UI',
-          default: true
-        }
-      }
     }
   }
+}
+
+/** UI config exposed to the browser via GET /config/ui. */
+interface UiConfig {
+  minAudiblePriority: 'off' | 'emergency' | 'alarm' | 'warning'
 }
 
 /** Resolve PluginConfig to AlertManagerConfig with defaults. */
@@ -136,13 +137,20 @@ function resolveConfig(pluginConfig: PluginConfig): AlertManagerConfig {
       timeoutSeconds: pluginConfig.escalation?.warningToAlarm?.timeoutSeconds ?? 300
     },
     silencing: {
-      alarmMaxSeconds: pluginConfig.silencing?.alarmMaxSeconds ?? 30,
-      emergencyMaxSeconds: pluginConfig.silencing?.emergencyMaxSeconds ?? 10
+      defaultMaxSilenceSeconds: pluginConfig.silencing?.defaultMaxSilenceSeconds ?? 120,
+      emergencyMaxSilenceSeconds: pluginConfig.silencing?.emergencyMaxSilenceSeconds ?? 30
     },
     sourceTimeout: {
       markStaleAfterSeconds: pluginConfig.sourceTimeout?.markStaleAfterSeconds ?? 60
     },
     retentionDays: pluginConfig.history?.retentionDays ?? 90
+  }
+}
+
+/** Resolve UI-only config from plugin config. */
+function resolveUiConfig(pluginConfig: PluginConfig): UiConfig {
+  return {
+    minAudiblePriority: pluginConfig.audio?.minAudiblePriority ?? 'warning'
   }
 }
 
@@ -168,6 +176,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
   let alertStore: AlertStore | undefined
   let historyStore: HistoryStore | undefined
   let readyPromise: Promise<void> | undefined
+  let uiConfig: UiConfig = { minAudiblePriority: 'warning' }
   const alertTypes = new Map<string, AlertDefinition>()
 
   const plugin: AlertManagerPlugin = {
@@ -189,6 +198,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       app.debug('Starting alert manager with config:', pluginConfig)
       app.setPluginStatus('Initializing')
 
+      uiConfig = resolveUiConfig(pluginConfig)
       const managerConfig = resolveConfig(pluginConfig)
       const dbPath = join(app.getDataDirPath(), 'alerts.db')
 
@@ -301,7 +311,8 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
     registerWithRouter(router: IRouter): void {
       registerRoutes(router, {
         getAlertManager: () => manager,
-        getHistoryStore: () => historyStore
+        getHistoryStore: () => historyStore,
+        getUiConfig: () => uiConfig
       })
     },
 

@@ -8,6 +8,7 @@
 import { LitElement, html, css } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
+import { AudioService } from '../services/audio-service.js'
 
 export class AlertList extends LitElement {
   static properties = {
@@ -74,6 +75,7 @@ export class AlertList extends LitElement {
   declare alerts: Alert[]
 
   private service = new AlertService()
+  private audioService = new AudioService()
 
   constructor() {
     super()
@@ -88,6 +90,23 @@ export class AlertList extends LitElement {
     this.service.connect().catch(() => {
       // Connection failure; alerts stay empty until retry succeeds
     })
+    this.fetchUiConfig()
+  }
+
+  private fetchUiConfig(): void {
+    const VALID_PRIORITIES = new Set(['off', 'emergency', 'alarm', 'warning'])
+    fetch('/plugins/signalk-alert-manager/config/ui')
+      .then((res) => (res.ok ? (res.json() as Promise<{ minAudiblePriority: string }>) : null))
+      .then((config) => {
+        if (config?.minAudiblePriority && VALID_PRIORITIES.has(config.minAudiblePriority)) {
+          this.audioService.setMinAudiblePriority(
+            config.minAudiblePriority as 'off' | 'emergency' | 'alarm' | 'warning'
+          )
+        }
+      })
+      .catch(() => {
+        // Config fetch failed; audio uses default (warning)
+      })
   }
 
   disconnectedCallback(): void {
@@ -96,10 +115,13 @@ export class AlertList extends LitElement {
     this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
     this.service.disconnect()
+    this.audioService.dispose()
   }
 
   private onServiceChange = (): void => {
-    this.alerts = this.service.getAlerts()
+    const alerts = this.service.getAlerts()
+    this.alerts = alerts
+    this.audioService.update(alerts)
   }
 
   private onAlertAcknowledge = (e: CustomEvent<{ id: string }>): void => {

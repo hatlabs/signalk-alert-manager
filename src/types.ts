@@ -287,10 +287,10 @@ export interface PluginConfig {
 
   /** Silencing duration limits */
   silencing?: {
-    /** Maximum seconds an alarm can be silenced (default: 30) */
-    alarmMaxSeconds?: number
-    /** Maximum seconds an emergency can be silenced (default: 10) */
-    emergencyMaxSeconds?: number
+    /** Maximum seconds a non-emergency alert can be silenced (default: 120) */
+    defaultMaxSilenceSeconds?: number
+    /** Maximum seconds an emergency can be silenced (default: 30) */
+    emergencyMaxSilenceSeconds?: number
   }
 
   /** Source timeout settings */
@@ -305,12 +305,10 @@ export interface PluginConfig {
     retentionDays?: number
   }
 
-  /** UI settings */
-  ui?: {
-    /** Enable browser audio alerts (default: true) */
-    audioEnabled?: boolean
-    /** Show alert banner in UI (default: true) */
-    showBanner?: boolean
+  /** Audio settings for the browser UI */
+  audio?: {
+    /** Minimum priority that triggers audible alerts: 'off', 'emergency', 'alarm', or 'warning' (default: 'warning') */
+    minAudiblePriority?: 'off' | 'emergency' | 'alarm' | 'warning'
   }
 }
 

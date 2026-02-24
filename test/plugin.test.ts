@@ -94,11 +94,11 @@ describe('Signal K Plugin', () => {
       expect(schema.properties).toHaveProperty('sourceTimeout')
     })
 
-    it('should include UI configuration', () => {
+    it('should include audio configuration', () => {
       const schema = (
         typeof plugin.schema === 'function' ? plugin.schema() : plugin.schema
       ) as PluginSchema
-      expect(schema.properties).toHaveProperty('ui')
+      expect(schema.properties).toHaveProperty('audio')
     })
   })
 
@@ -215,7 +215,7 @@ describe('Signal K Plugin', () => {
     it('should accept partial configuration', () => {
       const config = {
         silencing: {
-          alarmMaxSeconds: 60
+          defaultMaxSilenceSeconds: 60
         }
       }
 

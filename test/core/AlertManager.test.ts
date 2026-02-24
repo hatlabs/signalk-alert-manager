@@ -111,8 +111,8 @@ describe('AlertManager', () => {
         timeoutSeconds: 300
       },
       silencing: {
-        alarmMaxSeconds: 30,
-        emergencyMaxSeconds: 10
+        defaultMaxSilenceSeconds: 120,
+        emergencyMaxSilenceSeconds: 30
       },
       sourceTimeout: {
         markStaleAfterSeconds: 60
@@ -318,14 +318,14 @@ describe('AlertManager', () => {
 
       const silenced = await manager.silenceAlert(alert.id)
 
-      // Default is 30 seconds for alarm
+      // Default is 120 seconds for alarm
       if (silenced.silencedUntil === undefined) {
         throw new Error('Expected silencedUntil to be defined')
       }
       const silencedUntil = new Date(silenced.silencedUntil).getTime()
       const now = Date.now()
-      expect(silencedUntil - now).toBeLessThanOrEqual(30000)
-      expect(silencedUntil - now).toBeGreaterThan(29000)
+      expect(silencedUntil - now).toBeLessThanOrEqual(120000)
+      expect(silencedUntil - now).toBeGreaterThan(119000)
     })
 
     it('should use shorter duration for emergency', async () => {
@@ -337,14 +337,14 @@ describe('AlertManager', () => {
 
       const silenced = await manager.silenceAlert(alert.id)
 
-      // Default is 10 seconds for emergency
+      // Default is 30 seconds for emergency
       if (silenced.silencedUntil === undefined) {
         throw new Error('Expected silencedUntil to be defined')
       }
       const silencedUntil = new Date(silenced.silencedUntil).getTime()
       const now = Date.now()
-      expect(silencedUntil - now).toBeLessThanOrEqual(10000)
-      expect(silencedUntil - now).toBeGreaterThan(9000)
+      expect(silencedUntil - now).toBeLessThanOrEqual(30000)
+      expect(silencedUntil - now).toBeGreaterThan(29000)
     })
 
     it('should throw for non-existent alert', async () => {

@@ -37,10 +37,10 @@ export interface AlertManagerConfig {
   escalation: EscalationTimerConfig
   /** Silencing duration limits */
   silencing: {
-    /** Maximum seconds an alarm can be silenced */
-    alarmMaxSeconds: number
+    /** Maximum seconds a non-emergency alert can be silenced */
+    defaultMaxSilenceSeconds: number
     /** Maximum seconds an emergency can be silenced */
-    emergencyMaxSeconds: number
+    emergencyMaxSilenceSeconds: number
   }
   /** Source timeout settings */
   sourceTimeout: {
@@ -676,9 +676,9 @@ export class AlertManager extends EventEmitter {
    */
   private getDefaultSilenceDuration(priority: AlertPriority): number {
     if (priority === 'emergency') {
-      return this.config.silencing.emergencyMaxSeconds * 1000
+      return this.config.silencing.emergencyMaxSilenceSeconds * 1000
     }
-    return this.config.silencing.alarmMaxSeconds * 1000
+    return this.config.silencing.defaultMaxSilenceSeconds * 1000
   }
 
   /**

@@ -39,6 +39,7 @@ const MAX_MESSAGE_LENGTH = 1000
 export interface RouteDependencies {
   getAlertManager(): AlertManager | undefined
   getHistoryStore(): IHistoryStore | undefined
+  getUiConfig(): { minAudiblePriority: 'off' | 'emergency' | 'alarm' | 'warning' }
 }
 
 /**
@@ -54,6 +55,12 @@ export interface RouteDependencies {
  * Express matching issues.
  */
 export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
+  // --- Config routes ---
+
+  router.get('/config/ui', (_req: Request, res: Response) => {
+    res.json(deps.getUiConfig())
+  })
+
   // --- Static routes (must come before :id) ---
 
   router.get('/alerts/indication', (_req: Request, res: Response) => {
