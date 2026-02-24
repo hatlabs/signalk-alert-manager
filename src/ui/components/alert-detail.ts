@@ -8,6 +8,7 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert, HistoryEntry, HistoryEventType } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
+import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
 import { formatTime } from '../utils/format.js'
 
@@ -278,15 +279,19 @@ export class AlertDetail extends LitElement {
     }
 
     .error {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       padding: 1rem;
       color: #d32f2f;
-      text-align: center;
     }
 
     .loading {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       padding: 1rem;
       color: #888;
-      text-align: center;
     }
   `
 
@@ -331,8 +336,13 @@ export class AlertDetail extends LitElement {
     }
     // Reset actionInFlight when alert data changes (action completed)
     if (changed.has('alert') && this.alert) {
+      const wasInFlight = this.actionInFlight
       this.actionInFlight = false
       this.clearSafetyTimer()
+      // Refresh history if an action just completed
+      if (wasInFlight) {
+        this.loadHistory()
+      }
     }
   }
 
@@ -343,10 +353,10 @@ export class AlertDetail extends LitElement {
     if (match) {
       this.alert = match
       this.error = null
-    } else if (this.alert) {
-      // Alert was cleared — keep showing last state but update the view
+    } else {
+      const wasPreviouslyLoaded = this.alert !== null
       this.alert = null
-      this.error = 'Alert has been cleared'
+      this.error = wasPreviouslyLoaded ? 'Alert has been cleared' : 'Alert not found'
     }
   }
 
@@ -398,13 +408,19 @@ export class AlertDetail extends LitElement {
     })
   }
 
+  private renderBackButton() {
+    return html`<button data-action="close" aria-label="Back to alert list" @click=${this.onClose}>
+      Back
+    </button>`
+  }
+
   render() {
     if (this.error) {
-      return html`<div class="error">${this.error}</div>`
+      return html`<div class="error">${this.renderBackButton()} ${this.error}</div>`
     }
 
     if (!this.alert) {
-      return html`<div class="loading">Loading...</div>`
+      return html`<div class="loading">${this.renderBackButton()} Loading...</div>`
     }
 
     const colors = PRIORITY_COLORS[this.alert.priority]
@@ -428,9 +444,7 @@ export class AlertDetail extends LitElement {
             ${this.alert.stale ? html`<span class="stale">Stale</span>` : nothing}
             ${this.alert.silenced ? html`<span class="silenced">Silenced</span>` : nothing}
           </div>
-          <button data-action="close" aria-label="Close detail view" @click=${this.onClose}>
-            Close
-          </button>
+          ${this.renderBackButton()}
         </div>
 
         <div class="body">
@@ -479,27 +493,23 @@ export class AlertDetail extends LitElement {
                   ${showAck
                     ? html`<button
                         data-action="acknowledge"
+                        title="Acknowledge"
                         aria-label="Acknowledge: ${this.alert.message}"
                         ?disabled=${this.actionInFlight}
                         @click=${this.onAcknowledge}
                       >
-                        <svg viewBox="0 0 24 24">
-                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                        </svg>
+                        <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
                       </button>`
                     : nothing}
                   ${showSilence
                     ? html`<button
                         data-action="silence"
+                        title="Silence"
                         aria-label="Silence: ${this.alert.message}"
                         ?disabled=${this.actionInFlight}
                         @click=${this.onSilence}
                       >
-                        <svg viewBox="0 0 24 24">
-                          <path
-                            d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"
-                          />
-                        </svg>
+                        <svg viewBox="0 0 24 24"><path d=${ICON_SILENCE} /></svg>
                       </button>`
                     : nothing}
                 </div>

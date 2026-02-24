@@ -410,7 +410,7 @@ describe('AlertDetail', () => {
   })
 
   describe('error handling', () => {
-    it('shows loading when alert not found in service', async () => {
+    it('shows error when alert not found in service', async () => {
       fetchMock.mockReset()
       fetchMock
         .mockResolvedValueOnce({
@@ -433,8 +433,9 @@ describe('AlertDetail', () => {
       await new Promise((r) => setTimeout(r, 0))
       await el.updateComplete
 
-      const loading = shadowQuery(el, '.loading')
-      expect(loading).not.toBeNull()
+      const error = shadowQuery(el, '.error')
+      expect(error).not.toBeNull()
+      expect(error?.textContent).toContain('Alert not found')
     })
   })
 })
