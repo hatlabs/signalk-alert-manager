@@ -246,6 +246,17 @@ describe('AlertCard', () => {
       expect(badge).toBeNull()
     })
 
+    it('renders silence button before acknowledge button in DOM order', async () => {
+      const el = await createCard({ state: 'unacknowledged', priority: 'warning', silenced: false })
+      const buttons = shadowQueryAll(el, 'button[data-action]')
+      const actions = buttons.map((b) => b.getAttribute('data-action'))
+      const silenceIdx = actions.indexOf('silence')
+      const ackIdx = actions.indexOf('acknowledge')
+      expect(silenceIdx).toBeGreaterThanOrEqual(0)
+      expect(ackIdx).toBeGreaterThanOrEqual(0)
+      expect(silenceIdx).toBeLessThan(ackIdx)
+    })
+
     it('does not show actions area for acknowledged alerts', async () => {
       const el = await createCard({ state: 'acknowledged' })
       const actions = shadowQuery(el, '.actions')
