@@ -64,7 +64,7 @@ const TONE_PATTERNS: Partial<Record<AlertPriority, TonePattern>> = {
   }
 }
 
-const DEFAULT_GAIN = 0.3
+const DEFAULT_GAIN = 0.15
 
 export class AudioService {
   private minAudiblePriority: MinAudiblePriority
@@ -220,7 +220,7 @@ export class AudioService {
     gain.connect(ctx.destination)
 
     const osc = ctx.createOscillator()
-    osc.type = 'sine'
+    osc.type = 'square'
     osc.frequency.value = pattern.frequency
     osc.connect(gain)
     osc.start()
