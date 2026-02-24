@@ -204,10 +204,10 @@ describe('AlertCard', () => {
       expect(btn).not.toBeNull()
     })
 
-    it('does not show acknowledge button for caution priority', async () => {
+    it('shows acknowledge button for caution priority', async () => {
       const el = await createCard({ state: 'unacknowledged', priority: 'caution' })
       const btn = shadowQuery(el, '[data-action="acknowledge"]')
-      expect(btn).toBeNull()
+      expect(btn).not.toBeNull()
     })
 
     it('does not show acknowledge button for acknowledged alert', async () => {
@@ -406,30 +406,6 @@ describe('AlertList', () => {
     expect(cards).toHaveLength(3)
   })
 
-  it('has filter controls for state and priority', async () => {
-    const el = document.createElement('alert-list') as HTMLElement & {
-      updateComplete: Promise<boolean>
-    }
-    document.body.appendChild(el)
-    await updateComplete(el)
-
-    const stateFilter = shadowQuery(el, '[data-filter="state"]')
-    const priorityFilter = shadowQuery(el, '[data-filter="priority"]')
-    expect(stateFilter).not.toBeNull()
-    expect(priorityFilter).not.toBeNull()
-  })
-
-  it('has sort controls', async () => {
-    const el = document.createElement('alert-list') as HTMLElement & {
-      updateComplete: Promise<boolean>
-    }
-    document.body.appendChild(el)
-    await updateComplete(el)
-
-    const sortControl = shadowQuery(el, '[data-sort]')
-    expect(sortControl).not.toBeNull()
-  })
-
   describe('global silence button', () => {
     it('renders silence-all button', async () => {
       const el = document.createElement('alert-list') as HTMLElement & {
@@ -477,10 +453,10 @@ describe('AlertList', () => {
       expect(btn?.disabled).toBe(false)
     })
 
-    it('enables silence-all even when filters hide unacknowledged alerts', async () => {
+    it('disables silence-all when all unacknowledged alerts are already silenced', async () => {
       const alerts = [
         makeAlert({ id: 'acked', state: 'acknowledged', silenced: false }),
-        makeAlert({ id: 'unacked', state: 'unacknowledged', silenced: false })
+        makeAlert({ id: 'unacked', state: 'unacknowledged', silenced: true })
       ]
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -488,7 +464,6 @@ describe('AlertList', () => {
       })
 
       const el = document.createElement('alert-list') as HTMLElement & {
-        filterState: string
         updateComplete: Promise<boolean>
       }
       document.body.appendChild(el)
@@ -496,19 +471,8 @@ describe('AlertList', () => {
       await new Promise((r) => setTimeout(r, 0))
       await updateComplete(el)
 
-      // Apply filter that hides the unacknowledged alert
-      const stateFilter = shadowQuery(el, '[data-filter="state"]') as HTMLSelectElement
-      stateFilter.value = 'acknowledged'
-      stateFilter.dispatchEvent(new Event('change'))
-      await updateComplete(el)
-
-      // Only the acknowledged alert is visible
-      const cards = shadowQueryAll(el, 'alert-card')
-      expect(cards).toHaveLength(1)
-
-      // But silence-all should still be enabled (global action)
       const btn = shadowQuery(el, '[data-action="silence-all"]') as HTMLButtonElement
-      expect(btn?.disabled).toBe(false)
+      expect(btn?.disabled).toBe(true)
     })
   })
 

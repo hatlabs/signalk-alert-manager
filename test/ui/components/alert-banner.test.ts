@@ -196,10 +196,10 @@ describe('AlertBanner', () => {
     expect(btn).not.toBeNull()
   })
 
-  it('does not show acknowledge button for caution priority', async () => {
+  it('shows acknowledge button for caution priority', async () => {
     const el = await createBanner([makeAlert({ priority: 'caution', state: 'unacknowledged' })])
     const btn = shadowQuery(el, '[data-action="acknowledge"]')
-    expect(btn).toBeNull()
+    expect(btn).not.toBeNull()
   })
 
   it('disables button after click', async () => {

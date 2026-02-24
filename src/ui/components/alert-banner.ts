@@ -8,7 +8,9 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
+import { ICON_ACKNOWLEDGE } from '../styles/icons.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling button if no WebSocket update arrives. */
 const ACTION_TIMEOUT_MS = 5000
@@ -114,16 +116,22 @@ export class AlertBanner extends LitElement {
     .actions button {
       min-height: 44px;
       min-width: 44px;
-      padding: 0.375rem 0.75rem;
+      padding: 0.375rem;
       border: 1px solid #4caf50;
       border-radius: 4px;
       background: #fff;
       color: #2e7d32;
-      font-size: 0.8rem;
-      font-weight: 600;
       cursor: pointer;
       touch-action: manipulation;
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .actions button svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
     }
 
     .actions button:hover:not(:disabled) {
@@ -254,7 +262,7 @@ export class AlertBanner extends LitElement {
     const alert = this.topAlert
     const colors = PRIORITY_COLORS[alert.priority]
     const isUnacked = alert.state === 'unacknowledged' || alert.state === 'rtn-unacknowledged'
-    const showAck = isUnacked && alert.priority !== 'caution'
+    const showAck = isUnacked
 
     return html`
       <div
@@ -294,11 +302,12 @@ export class AlertBanner extends LitElement {
               <div class="actions">
                 <button
                   data-action="acknowledge"
+                  title="Acknowledge"
                   aria-label="Acknowledge: ${alert.message}"
                   ?disabled=${this.actionInFlight}
                   @click=${this.onAcknowledge}
                 >
-                  Acknowledge
+                  <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
                 </button>
               </div>
             `
@@ -309,8 +318,3 @@ export class AlertBanner extends LitElement {
 }
 
 customElements.define('alert-banner', AlertBanner)
-
-function formatTime(iso: string): string {
-  const date = new Date(iso)
-  return isNaN(date.getTime()) ? iso : date.toLocaleString()
-}

@@ -7,7 +7,9 @@
 
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
+import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling buttons if no WebSocket update arrives. */
 const ACTION_TIMEOUT_MS = 5000
@@ -57,6 +59,7 @@ export class AlertCard extends LitElement {
       flex: 1;
       padding: 0.75rem;
       min-width: 0;
+      cursor: pointer;
     }
 
     .header {
@@ -119,24 +122,30 @@ export class AlertCard extends LitElement {
 
     .actions {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 0.375rem;
       padding: 0.75rem;
-      justify-content: center;
+      align-items: center;
     }
 
     .actions button {
       min-height: 44px;
       min-width: 44px;
-      padding: 0.375rem 0.75rem;
+      padding: 0.375rem;
       border: 1px solid #ccc;
       border-radius: 4px;
       background: #fff;
-      font-size: 0.8rem;
-      font-weight: 600;
       cursor: pointer;
       touch-action: manipulation;
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .actions button svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
     }
 
     .actions button:hover:not(:disabled) {
@@ -226,6 +235,16 @@ export class AlertCard extends LitElement {
     this.startAction('alert-silence')
   }
 
+  private onSelect(): void {
+    this.dispatchEvent(
+      new CustomEvent('alert-select', {
+        detail: { id: this.alert.id },
+        bubbles: true,
+        composed: true
+      })
+    )
+  }
+
   render() {
     if (!this.alert) {
       return nothing
@@ -234,7 +253,7 @@ export class AlertCard extends LitElement {
     const colors = PRIORITY_COLORS[this.alert.priority]
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
-    const showAck = isUnacked && this.alert.priority !== 'caution'
+    const showAck = isUnacked
     const showSilence = isUnacked && !this.alert.silenced
     const hasActions = showAck || showSilence
 
@@ -244,7 +263,7 @@ export class AlertCard extends LitElement {
         style="--priority-color: ${colors.color}; --priority-bg: ${colors.background}"
       >
         <div class="priority-bar"></div>
-        <div class="content">
+        <div class="content" @click=${this.onSelect}>
           <div class="header">
             <span class="priority">${PRIORITY_LABELS[this.alert.priority]}</span>
             <span class="state">${STATE_LABELS[this.alert.state]}</span>
@@ -263,21 +282,23 @@ export class AlertCard extends LitElement {
                 ${showAck
                   ? html`<button
                       data-action="acknowledge"
+                      title="Acknowledge"
                       aria-label="Acknowledge: ${this.alert.message}"
                       ?disabled=${this.actionInFlight}
                       @click=${this.onAcknowledge}
                     >
-                      Acknowledge
+                      <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
                     </button>`
                   : nothing}
                 ${showSilence
                   ? html`<button
                       data-action="silence"
+                      title="Silence"
                       aria-label="Silence: ${this.alert.message}"
                       ?disabled=${this.actionInFlight}
                       @click=${this.onSilence}
                     >
-                      Silence
+                      <svg viewBox="0 0 24 24"><path d=${ICON_SILENCE} /></svg>
                     </button>`
                   : nothing}
               </div>
@@ -289,8 +310,3 @@ export class AlertCard extends LitElement {
 }
 
 customElements.define('alert-card', AlertCard)
-
-function formatTime(iso: string): string {
-  const date = new Date(iso)
-  return isNaN(date.getTime()) ? iso : date.toLocaleString()
-}
