@@ -218,6 +218,18 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
     const body = req.body as Record<string, unknown>
 
     // Validate required fields
+    if (body.path === undefined || body.path === null) {
+      res.status(400).json({ error: 'path is required' })
+      return
+    }
+    if (typeof body.path !== 'string') {
+      res.status(400).json({ error: 'path must be a string' })
+      return
+    }
+    if (body.path.length === 0) {
+      res.status(400).json({ error: 'path must not be empty' })
+      return
+    }
     if (!body.priority) {
       res.status(400).json({ error: 'priority is required' })
       return
@@ -252,6 +264,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
 
     manager
       .raiseAlert({
+        path: body.path,
         sourceId: typeof body.sourceId === 'string' ? body.sourceId : 'rest-api',
         priority: body.priority as AlertPriority,
         message: body.message,

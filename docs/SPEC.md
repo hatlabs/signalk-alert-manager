@@ -116,6 +116,7 @@ For one-shot events (e.g., waypoint arrival, anchor drag):
 interface Alert {
   // Identity
   id: string;                    // Unique alert instance ID (UUID)
+  path: string;                  // Signal K path identifying the alert (dedup key)
   sourceId: string;              // ID of the source that raised the alert
 
   // Classification
@@ -145,6 +146,9 @@ interface Alert {
   sourceOnline: boolean;         // Whether source is currently reachable
   lastSourceUpdate: string;      // Last update from source
   stale: boolean;                // Source went offline while alert active
+
+  // Multi-vessel
+  context?: string;              // Vessel context (e.g., "vessels.urn:mrn:imo:mmsi:123456789")
 }
 ```
 
@@ -197,11 +201,11 @@ POST /plugins/signalk-alert-manager/alerts
 Content-Type: application/json
 
 {
+  "path": "propulsion.main.coolantTemperature",
   "priority": "alarm",
   "message": "Engine coolant temperature high",
   "category": "engine",
   "data": {
-    "path": "propulsion.main.coolantTemperature",
     "value": 95,
     "threshold": 90
   },
