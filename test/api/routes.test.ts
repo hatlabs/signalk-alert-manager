@@ -107,6 +107,7 @@ function createTestContext(): TestContext {
 async function raiseTestAlert(
   ctx: TestContext,
   overrides?: Partial<{
+    path: string
     priority: string
     message: string
     category: string
@@ -116,6 +117,7 @@ async function raiseTestAlert(
   }>
 ): Promise<Alert> {
   return ctx.manager.raiseAlert({
+    path: overrides?.path ?? 'test.alert',
     sourceId: overrides?.sourceId ?? 'test-source',
     priority: (overrides?.priority ?? 'alarm') as Alert['priority'],
     message: overrides?.message ?? 'Test alert',
@@ -154,8 +156,8 @@ describe('REST API Routes', () => {
     })
 
     it('should return all alerts', async () => {
-      await raiseTestAlert(ctx, { message: 'Alert 1' })
-      await raiseTestAlert(ctx, { message: 'Alert 2' })
+      await raiseTestAlert(ctx, { path: 'test.alert.1', message: 'Alert 1' })
+      await raiseTestAlert(ctx, { path: 'test.alert.2', message: 'Alert 2' })
 
       const res = await fetch(`${ctx.baseUrl}/alerts`)
       expect(res.status).toBe(200)
@@ -164,9 +166,9 @@ describe('REST API Routes', () => {
     })
 
     it('should filter by state', async () => {
-      const alert = await raiseTestAlert(ctx)
+      const alert = await raiseTestAlert(ctx, { path: 'test.state.1' })
       await ctx.manager.acknowledgeAlert(alert.id)
-      await raiseTestAlert(ctx, { message: 'Unacked alert' })
+      await raiseTestAlert(ctx, { path: 'test.state.2', message: 'Unacked alert' })
 
       const res = await fetch(`${ctx.baseUrl}/alerts?state=unacknowledged`)
       const body = (await res.json()) as Alert[]
@@ -175,8 +177,8 @@ describe('REST API Routes', () => {
     })
 
     it('should filter by multiple states', async () => {
-      await raiseTestAlert(ctx, { message: 'Alert 1' })
-      await raiseTestAlert(ctx, { message: 'Alert 2' })
+      await raiseTestAlert(ctx, { path: 'test.states.1', message: 'Alert 1' })
+      await raiseTestAlert(ctx, { path: 'test.states.2', message: 'Alert 2' })
 
       const res = await fetch(`${ctx.baseUrl}/alerts?state=unacknowledged,acknowledged`)
       const body = (await res.json()) as Alert[]
@@ -184,8 +186,12 @@ describe('REST API Routes', () => {
     })
 
     it('should filter by priority', async () => {
-      await raiseTestAlert(ctx, { priority: 'alarm', message: 'Alarm' })
-      await raiseTestAlert(ctx, { priority: 'warning', message: 'Warning' })
+      await raiseTestAlert(ctx, { path: 'test.priority.1', priority: 'alarm', message: 'Alarm' })
+      await raiseTestAlert(ctx, {
+        path: 'test.priority.2',
+        priority: 'warning',
+        message: 'Warning'
+      })
 
       const res = await fetch(`${ctx.baseUrl}/alerts?priority=alarm`)
       const body = (await res.json()) as Alert[]
@@ -194,9 +200,17 @@ describe('REST API Routes', () => {
     })
 
     it('should filter by multiple priorities', async () => {
-      await raiseTestAlert(ctx, { priority: 'alarm', message: 'Alarm' })
-      await raiseTestAlert(ctx, { priority: 'warning', message: 'Warning' })
-      await raiseTestAlert(ctx, { priority: 'caution', message: 'Caution' })
+      await raiseTestAlert(ctx, { path: 'test.priorities.1', priority: 'alarm', message: 'Alarm' })
+      await raiseTestAlert(ctx, {
+        path: 'test.priorities.2',
+        priority: 'warning',
+        message: 'Warning'
+      })
+      await raiseTestAlert(ctx, {
+        path: 'test.priorities.3',
+        priority: 'caution',
+        message: 'Caution'
+      })
 
       const res = await fetch(`${ctx.baseUrl}/alerts?priority=alarm,warning`)
       const body = (await res.json()) as Alert[]
@@ -205,10 +219,11 @@ describe('REST API Routes', () => {
 
     it('should filter by category', async () => {
       await raiseTestAlert(ctx, {
+        path: 'test.category.1',
         category: 'engine',
         message: 'Engine alert'
       })
-      await raiseTestAlert(ctx, { category: 'nav', message: 'Nav alert' })
+      await raiseTestAlert(ctx, { path: 'test.category.2', category: 'nav', message: 'Nav alert' })
 
       const res = await fetch(`${ctx.baseUrl}/alerts?category=engine`)
       const body = (await res.json()) as Alert[]
@@ -227,8 +242,11 @@ describe('REST API Routes', () => {
     })
 
     it('should filter by stale=false', async () => {
-      await raiseTestAlert(ctx, { message: 'Fresh alert' })
-      const staleAlert = await raiseTestAlert(ctx, { message: 'Stale alert' })
+      await raiseTestAlert(ctx, { path: 'test.stale.fresh', message: 'Fresh alert' })
+      const staleAlert = await raiseTestAlert(ctx, {
+        path: 'test.stale.stale',
+        message: 'Stale alert'
+      })
       ctx.manager.markSourceOffline(staleAlert.sourceId)
 
       const res = await fetch(`${ctx.baseUrl}/alerts?stale=false`)
@@ -275,6 +293,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'propulsion.main.coolantTemperature',
           priority: 'alarm',
           message: 'Engine coolant temperature high'
         })
@@ -292,6 +311,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'propulsion.fuel.level',
           priority: 'warning',
           message: 'Low fuel',
           category: 'engine',
@@ -311,6 +331,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'custom.source.alert',
           priority: 'alarm',
           message: 'Custom source alert',
           sourceId: 'my-plugin'
@@ -325,7 +346,7 @@ describe('REST API Routes', () => {
       const res = await fetch(`${ctx.baseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'No priority' })
+        body: JSON.stringify({ path: 'test.no.priority', message: 'No priority' })
       })
       expect(res.status).toBe(400)
       const body = (await res.json()) as { error: string }
@@ -336,7 +357,7 @@ describe('REST API Routes', () => {
       const res = await fetch(`${ctx.baseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: 'alarm' })
+        body: JSON.stringify({ path: 'test.no.message', priority: 'alarm' })
       })
       expect(res.status).toBe(400)
       const body = (await res.json()) as { error: string }
@@ -348,6 +369,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'test.bad.priority',
           priority: 'critical',
           message: 'Bad priority'
         })
@@ -362,6 +384,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'test.long.message',
           priority: 'alarm',
           message: 'x'.repeat(1001)
         })
@@ -375,7 +398,7 @@ describe('REST API Routes', () => {
       const res = await fetch(`${ctx.baseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: 'alarm', message: '' })
+        body: JSON.stringify({ path: 'test.empty.message', priority: 'alarm', message: '' })
       })
       expect(res.status).toBe(400)
     })
@@ -384,9 +407,42 @@ describe('REST API Routes', () => {
       const res = await fetch(`${ctx.baseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: 'alarm', message: 123 })
+        body: JSON.stringify({ path: 'test.invalid.message', priority: 'alarm', message: 123 })
       })
       expect(res.status).toBe(400)
+    })
+
+    it('should return 400 when path is missing', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: 'alarm', message: 'No path' })
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('path')
+    })
+
+    it('should return 400 when path is empty string', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '', priority: 'alarm', message: 'Empty path' })
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('path')
+    })
+
+    it('should return 400 when path is not a string', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 123, priority: 'alarm', message: 'Numeric path' })
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('path')
     })
 
     it('should ignore array data field', async () => {
@@ -394,6 +450,7 @@ describe('REST API Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path: 'test.array.data',
           priority: 'alarm',
           message: 'Array data test',
           data: [1, 2, 3]
@@ -515,8 +572,8 @@ describe('REST API Routes', () => {
 
   describe('POST /alerts/silence-all', () => {
     it('should silence all unacknowledged alerts', async () => {
-      await raiseTestAlert(ctx, { message: 'Alert 1' })
-      await raiseTestAlert(ctx, { message: 'Alert 2' })
+      await raiseTestAlert(ctx, { path: 'test.silence.1', message: 'Alert 1' })
+      await raiseTestAlert(ctx, { path: 'test.silence.2', message: 'Alert 2' })
 
       const res = await fetch(`${ctx.baseUrl}/alerts/silence-all`, {
         method: 'POST'
@@ -791,7 +848,7 @@ describe('REST API Routes', () => {
       const res = await fetch(`${uninitBaseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: 'alarm', message: 'test' })
+        body: JSON.stringify({ path: 'test.503', priority: 'alarm', message: 'test' })
       })
       expect(res.status).toBe(503)
     })

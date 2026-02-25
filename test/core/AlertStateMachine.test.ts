@@ -16,6 +16,7 @@ describe('AlertStateMachine', () => {
   // Helper to create a test alert
   function makeAlert(overrides: Partial<CreateAlertParams> = {}): Alert {
     return createAlert({
+      path: 'test.alert',
       sourceId: 'test-source',
       priority: 'alarm',
       message: 'Test alert',

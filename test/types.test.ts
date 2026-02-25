@@ -32,6 +32,7 @@ describe('TypeScript Types', () => {
     it('should accept a valid alert object with required fields', () => {
       const alert: Alert = {
         id: '123e4567-e89b-12d3-a456-426614174000',
+        path: 'propulsion.main.coolantTemperature',
         sourceId: 'plugin-xyz',
         priority: 'alarm',
         state: 'unacknowledged',
@@ -51,6 +52,7 @@ describe('TypeScript Types', () => {
     it('should accept optional fields', () => {
       const alert: Alert = {
         id: '123e4567-e89b-12d3-a456-426614174000',
+        path: 'tanks.fuel.0.currentLevel',
         sourceId: 'plugin-xyz',
         priority: 'warning',
         state: 'acknowledged',
@@ -129,6 +131,7 @@ describe('TypeScript Types', () => {
   describe('RaiseAlertRequest', () => {
     it('should accept minimal raise request', () => {
       const request: RaiseAlertRequest = {
+        path: 'electrical.battery.voltage',
         priority: 'caution',
         message: 'Battery voltage low'
       }
@@ -137,6 +140,7 @@ describe('TypeScript Types', () => {
 
     it('should accept full raise request', () => {
       const request: RaiseAlertRequest = {
+        path: 'propulsion.main.temperature',
         priority: 'alarm',
         message: 'Engine overheating',
         category: 'engine',

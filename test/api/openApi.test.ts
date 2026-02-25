@@ -76,6 +76,7 @@ describe('OpenAPI specification', () => {
     it('should have all required fields from the Alert interface', () => {
       const requiredFields = [
         'id',
+        'path',
         'sourceId',
         'priority',
         'state',
@@ -95,6 +96,7 @@ describe('OpenAPI specification', () => {
     it('should define all properties from the Alert interface', () => {
       const expectedProperties = [
         'id',
+        'path',
         'sourceId',
         'priority',
         'state',
@@ -156,7 +158,7 @@ describe('OpenAPI specification', () => {
   describe('RaiseAlertRequest schema', () => {
     it('should require priority and message', () => {
       const schema = openApi.components.schemas.RaiseAlertRequest
-      expect(schema.required).toEqual(['priority', 'message'])
+      expect(schema.required).toEqual(['path', 'priority', 'message'])
     })
 
     it('should define optional fields', () => {

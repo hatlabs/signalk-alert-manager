@@ -108,6 +108,7 @@ describe('NotificationTransformer', () => {
     const alerts = alertManager.getAlerts()
     expect(alerts).toHaveLength(1)
     expect(alerts[0].priority).toBe('alarm')
+    expect(alerts[0].path).toBe('engine.overheating')
     expect(alerts[0].sourceId).toBe('notifications:notifications.engine.overheating')
     expect(alerts[0].category).toBe('engine')
     expect(alerts[0].message).toBe('Engine overheating')
@@ -337,7 +338,7 @@ describe('NotificationTransformer', () => {
     expect(alertManager.getActiveAlertCount()).toBe(0)
   })
 
-  it('should deduplicate notifications via sourceId+message', async () => {
+  it('should deduplicate notifications via path', async () => {
     const delta = createTestDelta({
       updates: [
         {

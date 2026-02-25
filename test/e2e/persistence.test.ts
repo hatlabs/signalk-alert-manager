@@ -36,6 +36,7 @@ describe('Persistence across restarts', () => {
     client = new AlertClient(managed.host)
 
     const alert = await client.raiseAlertJson({
+      path: 'test.persistence.alarm',
       priority: 'alarm',
       message: 'Persistence test alert',
       category: 'test'
