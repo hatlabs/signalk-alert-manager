@@ -1947,4 +1947,214 @@ describe('AlertManager', () => {
       expect(manager.getAlert(alert.id)).toBeDefined()
     })
   })
+
+  describe('re-raise reactivation', () => {
+    it('should reactivate acknowledged alert to unacknowledged on re-raise', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.acknowledgeAlert(alert.id, 'user-1')
+      expect(manager.getAlert(alert.id)?.state).toBe('acknowledged')
+
+      const reraised = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      expect(reraised.id).toBe(alert.id)
+      expect(reraised.state).toBe('unacknowledged')
+      expect(reraised.acknowledgedAt).toBeUndefined()
+      expect(reraised.acknowledgedBy).toBeUndefined()
+    })
+
+    it('should reactivate rtn-unacknowledged alert to unacknowledged on re-raise', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.clearCondition(alert.id)
+      expect(manager.getAlert(alert.id)?.state).toBe('rtn-unacknowledged')
+
+      const reraised = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      expect(reraised.id).toBe(alert.id)
+      expect(reraised.state).toBe('unacknowledged')
+      expect(reraised.clearedAt).toBeUndefined()
+    })
+
+    it('should emit raised event on reactivation (not updated)', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.acknowledgeAlert(alert.id)
+      events = []
+
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('raised')
+      expect(events[0].previousState).toBe('acknowledged')
+    })
+
+    it('should emit updated event for unacknowledged re-raise (no state change)', async () => {
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      events = []
+
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert updated'
+      })
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('updated')
+    })
+
+    it('should restart escalation timer for reactivated warning', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test warning'
+      })
+
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      await manager.acknowledgeAlert(alert.id)
+      expect(fakeTimers.getPendingCount()).toBe(0)
+
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test warning re-raised'
+      })
+
+      // Escalation timer should be restarted
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      // Verify it fires
+      fakeTimers.advanceTime(300 * 1000)
+      expect(manager.getAlert(alert.id)?.priority).toBe('alarm')
+    })
+
+    it('should un-silence and cancel silence timer on re-raise', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.acknowledgeAlert(alert.id)
+      // Silence the acknowledged alert
+      await manager.silenceAlert(alert.id, 30000)
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      const reactivated = manager.getAlert(alert.id)
+      expect(reactivated?.silenced).toBe(false)
+      expect(reactivated?.silencedUntil).toBeUndefined()
+
+      // Silence timer should not fire (was cancelled)
+      events = []
+      fakeTimers.advanceTime(30000)
+      expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
+    })
+
+    it('should preserve raisedAt on reactivation', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      const originalRaisedAt = alert.raisedAt
+
+      await manager.acknowledgeAlert(alert.id)
+
+      const reraised = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      expect(reraised.raisedAt).toBe(originalRaisedAt)
+    })
+
+    it('should log raise history event on reactivation', async () => {
+      const historyEntries: { eventType: string; previousState?: string; newState?: string }[] = []
+      const mockHistoryStore = {
+        initialize: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+        log: (entry: { eventType: string; previousState?: string; newState?: string }) => {
+          historyEntries.push(entry)
+          return Promise.resolve()
+        },
+        query: () => Promise.resolve({ entries: [], total: 0 }),
+        prune: () => Promise.resolve(0)
+      } as unknown as import('../../src/types.js').IHistoryStore
+
+      manager.stop()
+      manager = new AlertManager(defaultConfig, fakeTimers, undefined, mockHistoryStore)
+      manager.on('alert', (event: AlertEvent) => events.push(event))
+
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+      await manager.acknowledgeAlert(alert.id)
+      historyEntries.length = 0
+
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      const raiseEntries = historyEntries.filter((e) => e.eventType === 'raise')
+      expect(raiseEntries).toHaveLength(1)
+      expect(raiseEntries[0].previousState).toBe('acknowledged')
+      expect(raiseEntries[0].newState).toBe('unacknowledged')
+    })
+  })
 })

@@ -436,5 +436,125 @@ describe('AlertStateMachine', () => {
 
       expect(alert.silenced).toBe(originalSilenced)
     })
+
+    it('should not mutate input alert on reactivate', () => {
+      const alert = makeAlert()
+      const acked = assertAlert(stateMachine.acknowledge(alert).alert)
+      const originalState = acked.state
+
+      stateMachine.reactivate(acked)
+
+      expect(acked.state).toBe(originalState)
+    })
+  })
+
+  describe('reactivate', () => {
+    it('should transition acknowledged to unacknowledged', () => {
+      const alert = makeAlert()
+      const acked = assertAlert(stateMachine.acknowledge(alert, 'user-1').alert)
+
+      const result = stateMachine.reactivate(acked)
+
+      expect(result.cleared).toBe(false)
+      expect(result.previousState).toBe('acknowledged')
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
+    })
+
+    it('should reset acknowledgedAt and acknowledgedBy on acknowledged → unacknowledged', () => {
+      const alert = makeAlert()
+      const acked = assertAlert(stateMachine.acknowledge(alert, 'user-1').alert)
+      expect(acked.acknowledgedAt).toBeDefined()
+      expect(acked.acknowledgedBy).toBe('user-1')
+
+      const result = stateMachine.reactivate(acked)
+
+      expect(result.alert?.acknowledgedAt).toBeUndefined()
+      expect(result.alert?.acknowledgedBy).toBeUndefined()
+    })
+
+    it('should transition rtn-unacknowledged to unacknowledged', () => {
+      const alert = makeAlert()
+      const rtn = assertAlert(stateMachine.clearCondition(alert).alert)
+      expect(rtn.state).toBe('rtn-unacknowledged')
+
+      const result = stateMachine.reactivate(rtn)
+
+      expect(result.cleared).toBe(false)
+      expect(result.previousState).toBe('rtn-unacknowledged')
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
+    })
+
+    it('should reset clearedAt on rtn-unacknowledged → unacknowledged', () => {
+      const alert = makeAlert()
+      const rtn = assertAlert(stateMachine.clearCondition(alert).alert)
+      expect(rtn.clearedAt).toBeDefined()
+
+      const result = stateMachine.reactivate(rtn)
+
+      expect(result.alert?.clearedAt).toBeUndefined()
+    })
+
+    it('should be idempotent on unacknowledged alert', () => {
+      const alert = makeAlert()
+
+      const result = stateMachine.reactivate(alert)
+
+      expect(result.cleared).toBe(false)
+      expect(result.previousState).toBe('unacknowledged')
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
+    })
+
+    it('should reset silenced and silencedUntil on reactivation', () => {
+      const alert = makeAlert()
+      const acked = assertAlert(stateMachine.acknowledge(alert).alert)
+      const silenced = stateMachine.silence(acked, new Date(Date.now() + 30000))
+
+      const result = stateMachine.reactivate(silenced)
+
+      expect(result.alert?.silenced).toBe(false)
+      expect(result.alert?.silencedUntil).toBeUndefined()
+    })
+
+    it('should transition latching acknowledged to unacknowledged', () => {
+      const alert = makeAlert({ latching: true })
+      const acked = assertAlert(stateMachine.acknowledge(alert, 'user-1').alert)
+
+      const result = stateMachine.reactivate(acked)
+
+      expect(result.cleared).toBe(false)
+      expect(result.previousState).toBe('acknowledged')
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
+      expect(result.alert?.latching).toBe(true)
+    })
+
+    it('should transition latching rtn-unacknowledged (condition=false) to unacknowledged', () => {
+      // Latching alerts with cleared condition stay unacknowledged (not rtn-unacknowledged),
+      // but test the reactivation path for completeness
+      const alert = makeAlert({ latching: true })
+      const cleared = assertAlert(stateMachine.clearCondition(alert).alert)
+      // Latching stays unacknowledged with condition=false
+      expect(cleared.state).toBe('unacknowledged')
+      expect(cleared.condition).toBe(false)
+
+      const result = stateMachine.reactivate(cleared)
+
+      expect(result.alert?.state).toBe('unacknowledged')
+      expect(result.alert?.condition).toBe(true)
+      expect(result.alert?.latching).toBe(true)
+    })
+
+    it('should preserve raisedAt', () => {
+      const alert = makeAlert()
+      const originalRaisedAt = alert.raisedAt
+      const acked = assertAlert(stateMachine.acknowledge(alert).alert)
+
+      const result = stateMachine.reactivate(acked)
+
+      expect(result.alert?.raisedAt).toBe(originalRaisedAt)
+    })
   })
 })

@@ -236,8 +236,9 @@ export class AlertStateMachine {
    * - any state + condition=false → delegates to clearCondition
    *
    * Note: For setting condition to false, prefer using clearCondition() directly
-   * as it provides proper state transitions. This method is primarily for
-   * reactivating conditions.
+   * as it provides proper state transitions. For re-raise after acknowledge
+   * (acknowledged → unacknowledged), use reactivate() instead — it also resets
+   * silencing and acknowledgment fields.
    */
   setCondition(alert: Alert, active: boolean): StateTransitionResult {
     const previousState = alert.state
@@ -283,6 +284,63 @@ export class AlertStateMachine {
       ...alert,
       silenced: true,
       silencedUntil: until.toISOString()
+    }
+  }
+
+  /**
+   * Reactivate an alert that has been acknowledged or returned-to-normal.
+   *
+   * Used when a source re-raises an alert for a condition that is still
+   * (or again) active. Transitions the alert back to unacknowledged so
+   * the operator is re-alerted.
+   *
+   * Transitions:
+   * - acknowledged → unacknowledged (resets ack fields, silencing)
+   * - rtn-unacknowledged → unacknowledged (resets clearedAt, silencing)
+   * - unacknowledged → unacknowledged (idempotent, ensures condition=true)
+   */
+  reactivate(alert: Alert): StateTransitionResult {
+    const previousState = alert.state
+
+    if (alert.state === 'acknowledged') {
+      return {
+        alert: {
+          ...alert,
+          state: 'unacknowledged',
+          condition: true,
+          acknowledgedAt: undefined,
+          acknowledgedBy: undefined,
+          silenced: false,
+          silencedUntil: undefined
+        },
+        cleared: false,
+        previousState
+      }
+    }
+
+    if (alert.state === 'rtn-unacknowledged') {
+      return {
+        alert: {
+          ...alert,
+          state: 'unacknowledged',
+          condition: true,
+          clearedAt: undefined,
+          silenced: false,
+          silencedUntil: undefined
+        },
+        cleared: false,
+        previousState
+      }
+    }
+
+    // Already unacknowledged — idempotent, ensure condition is true
+    return {
+      alert: {
+        ...alert,
+        condition: true
+      },
+      cleared: false,
+      previousState
     }
   }
 

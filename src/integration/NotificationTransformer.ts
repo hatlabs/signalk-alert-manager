@@ -153,6 +153,18 @@ export class NotificationTransformer {
       return
     }
 
+    // Guard: if we already track an active alert for this path, just heartbeat
+    const existingAlertId = this.pathToAlertId.get(path)
+    if (existingAlertId) {
+      const existingAlert = this.deps.alertManager.getAlert(existingAlertId)
+      if (existingAlert) {
+        this.deps.alertManager.sourceHeartbeat($source ?? 'notifications')
+        return
+      }
+      // Alert was cleared externally — fall through to re-raise
+      this.pathToAlertId.delete(path)
+    }
+
     // Strip "notifications." prefix — it's a tree location, not identity
     const alertPath = path.startsWith('notifications.') ? path.slice('notifications.'.length) : path
     const category = this.extractCategory(path)

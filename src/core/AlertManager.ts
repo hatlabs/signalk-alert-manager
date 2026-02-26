@@ -169,7 +169,11 @@ export class AlertManager extends EventEmitter {
       const indexKey = this.getIndexKey(alert.path, alert.context)
       this.alertIndex.set(indexKey, alert.id)
 
-      // Start escalation timer for unacknowledged warnings (accounting for elapsed time)
+      // Start escalation timer for unacknowledged warnings (accounting for elapsed time).
+      // Known limitation: reactivated warnings preserve the original raisedAt, so after
+      // a server restart they may escalate immediately if enough time has passed since
+      // the original raise. The window is small (requires restart while a reactivated
+      // warning is still unacknowledged).
       if (alert.state === 'unacknowledged' && alert.priority === 'warning') {
         const elapsedMs = Date.now() - new Date(alert.raisedAt).getTime()
         const remainingMs = this.config.escalation.timeoutSeconds * 1000 - elapsedMs
@@ -610,6 +614,7 @@ export class AlertManager extends EventEmitter {
   /**
    * Update an existing alert with new data.
    * Priority can only be escalated (increased), not reduced.
+   * If the alert was acknowledged or returned-to-normal, reactivates it.
    */
   private async updateExistingAlert(existing: Alert, params: CreateAlertParams): Promise<Alert> {
     // Allow priority escalation but not reduction
@@ -623,7 +628,7 @@ export class AlertManager extends EventEmitter {
       this.escalationTimer.cancelTimer(existing.id)
     }
 
-    const updated: Alert = {
+    const dataUpdated: Alert = {
       ...existing,
       $source: params.$source,
       source: params.source ?? existing.source,
@@ -633,6 +638,12 @@ export class AlertManager extends EventEmitter {
       lastSourceUpdate: new Date().toISOString(),
       sourceOnline: true
     }
+
+    // Attempt to reactivate (acknowledged/rtn-unacknowledged → unacknowledged)
+    const reactivation = this.stateMachine.reactivate(dataUpdated)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
+    const updated = reactivation.alert!
+    const stateChanged = reactivation.previousState !== updated.state
 
     this.alerts.set(existing.id, updated)
 
@@ -647,7 +658,20 @@ export class AlertManager extends EventEmitter {
       })
     }
 
-    this.emitEvent('updated', updated)
+    if (stateChanged) {
+      // Reactivation: cancel silence timer, restart escalation, log and emit 'raised'
+      this.cancelSilenceExpirationTimer(existing.id)
+      this.escalationTimer.cancelTimer(existing.id)
+      this.escalationTimer.startTimer(existing.id, updated.priority)
+
+      this.logHistory('raise', updated, {
+        previousState: reactivation.previousState,
+        newState: updated.state
+      })
+      this.emitEvent('raised', updated, reactivation.previousState)
+    } else {
+      this.emitEvent('updated', updated)
+    }
 
     return updated
   }
