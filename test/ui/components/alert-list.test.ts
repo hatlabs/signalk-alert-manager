@@ -234,6 +234,54 @@ describe('AlertCard', () => {
       expect(btn).toBeNull()
     })
 
+    it('hides silence button when alert priority is below minAudiblePriority', async () => {
+      const el = document.createElement('alert-card') as HTMLElement & {
+        alert: Alert
+        minAudiblePriority: string
+        updateComplete: Promise<boolean>
+      }
+      el.alert = makeAlert({ state: 'unacknowledged', priority: 'caution', silenced: false })
+      el.minAudiblePriority = 'warning'
+      document.body.appendChild(el)
+      await updateComplete(el)
+      const btn = shadowQuery(el, '[data-action="silence"]')
+      expect(btn).toBeNull()
+    })
+
+    it('shows silence button when alert priority meets minAudiblePriority', async () => {
+      const el = document.createElement('alert-card') as HTMLElement & {
+        alert: Alert
+        minAudiblePriority: string
+        updateComplete: Promise<boolean>
+      }
+      el.alert = makeAlert({ state: 'unacknowledged', priority: 'warning', silenced: false })
+      el.minAudiblePriority = 'warning'
+      document.body.appendChild(el)
+      await updateComplete(el)
+      const btn = shadowQuery(el, '[data-action="silence"]')
+      expect(btn).not.toBeNull()
+    })
+
+    it('shows silence button when minAudiblePriority is not set', async () => {
+      const el = await createCard({ state: 'unacknowledged', priority: 'caution', silenced: false })
+      const btn = shadowQuery(el, '[data-action="silence"]')
+      expect(btn).not.toBeNull()
+    })
+
+    it('hides silence button when minAudiblePriority is off', async () => {
+      const el = document.createElement('alert-card') as HTMLElement & {
+        alert: Alert
+        minAudiblePriority: string
+        updateComplete: Promise<boolean>
+      }
+      el.alert = makeAlert({ state: 'unacknowledged', priority: 'emergency', silenced: false })
+      el.minAudiblePriority = 'off'
+      document.body.appendChild(el)
+      await updateComplete(el)
+      const btn = shadowQuery(el, '[data-action="silence"]')
+      expect(btn).toBeNull()
+    })
+
     it('shows silenced badge when alert is silenced', async () => {
       const el = await createCard({ state: 'unacknowledged', silenced: true })
       const badge = shadowQuery(el, '.silenced')

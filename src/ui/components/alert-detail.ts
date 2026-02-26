@@ -9,7 +9,14 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert, HistoryEntry, HistoryEventType } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
 import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
-import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import {
+  PRIORITY_COLORS,
+  PRIORITY_LABELS,
+  STATE_LABELS,
+  VALID_AUDIBLE_PRIORITIES,
+  isAudible
+} from '../styles/priority.js'
+import type { MinAudiblePriority } from '../styles/priority.js'
 import { formatTime } from '../utils/format.js'
 
 const API_BASE = '/plugins/signalk-alert-manager'
@@ -29,6 +36,7 @@ const EVENT_TYPE_LABELS: Record<HistoryEventType, string> = {
 export class AlertDetail extends LitElement {
   static properties = {
     alertId: { type: String, attribute: 'alert-id' },
+    minAudiblePriority: { type: String, attribute: 'min-audible-priority' },
     alert: { state: true },
     history: { state: true },
     historyError: { state: true },
@@ -296,6 +304,7 @@ export class AlertDetail extends LitElement {
   `
 
   declare alertId: string
+  declare minAudiblePriority: MinAudiblePriority | null
   declare alert: Alert | null
   declare history: HistoryEntry[]
   declare historyError: boolean
@@ -308,6 +317,7 @@ export class AlertDetail extends LitElement {
   constructor() {
     super()
     this.alertId = ''
+    this.minAudiblePriority = null
     this.alert = null
     this.history = []
     this.historyError = false
@@ -321,6 +331,20 @@ export class AlertDetail extends LitElement {
     this.service.connect().catch(() => {
       // Connection failure; will retry
     })
+    this.fetchUiConfig()
+  }
+
+  private fetchUiConfig(): void {
+    fetch(`${API_BASE}/config/ui`)
+      .then((res) => (res.ok ? (res.json() as Promise<{ minAudiblePriority?: string }>) : null))
+      .then((config) => {
+        if (config?.minAudiblePriority && VALID_AUDIBLE_PRIORITIES.has(config.minAudiblePriority)) {
+          this.minAudiblePriority = config.minAudiblePriority as MinAudiblePriority
+        }
+      })
+      .catch(() => {
+        // Config fetch failed; defaults apply
+      })
   }
 
   disconnectedCallback(): void {
@@ -427,7 +451,8 @@ export class AlertDetail extends LitElement {
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
     const showAck = isUnacked
-    const showSilence = isUnacked && !this.alert.silenced
+    const showSilence =
+      isUnacked && !this.alert.silenced && isAudible(this.alert.priority, this.minAudiblePriority)
 
     return html`
       <div

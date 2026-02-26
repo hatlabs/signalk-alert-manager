@@ -9,11 +9,14 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { AlertService } from '../services/alert-service.js'
 import { AudioService } from '../services/audio-service.js'
+import { VALID_AUDIBLE_PRIORITIES } from '../styles/priority.js'
+import type { MinAudiblePriority } from '../styles/priority.js'
 import { SimulationService } from '../services/simulation-service.js'
 
 export class AlertList extends LitElement {
   static properties = {
     alerts: { state: true },
+    minAudiblePriority: { state: true },
     simulationRunning: { state: true },
     simulationEnabled: { state: true }
   }
@@ -116,6 +119,7 @@ export class AlertList extends LitElement {
   `
 
   declare alerts: Alert[]
+  declare minAudiblePriority: MinAudiblePriority | null
   declare simulationRunning: boolean
   declare simulationEnabled: boolean
 
@@ -126,6 +130,7 @@ export class AlertList extends LitElement {
   constructor() {
     super()
     this.alerts = []
+    this.minAudiblePriority = null
     this.simulationRunning = false
     this.simulationEnabled = false
   }
@@ -142,7 +147,6 @@ export class AlertList extends LitElement {
   }
 
   private fetchUiConfig(): void {
-    const VALID_PRIORITIES = new Set(['off', 'emergency', 'alarm', 'warning'])
     fetch('/plugins/signalk-alert-manager/config/ui')
       .then((res) =>
         res.ok
@@ -153,10 +157,10 @@ export class AlertList extends LitElement {
           : null
       )
       .then((config) => {
-        if (config?.minAudiblePriority && VALID_PRIORITIES.has(config.minAudiblePriority)) {
-          this.audioService.setMinAudiblePriority(
-            config.minAudiblePriority as 'off' | 'emergency' | 'alarm' | 'warning'
-          )
+        if (config?.minAudiblePriority && VALID_AUDIBLE_PRIORITIES.has(config.minAudiblePriority)) {
+          const priority = config.minAudiblePriority as MinAudiblePriority
+          this.audioService.setMinAudiblePriority(priority)
+          this.minAudiblePriority = priority
         }
         if (config?.enableSimulation === true) {
           this.simulationEnabled = true
@@ -233,7 +237,7 @@ export class AlertList extends LitElement {
     return this.alerts.map(
       (alert, i) => html`
         ${i === separatorIndex ? html`<hr class="group-separator" />` : nothing}
-        <alert-card .alert=${alert}></alert-card>
+        <alert-card .alert=${alert} .minAudiblePriority=${this.minAudiblePriority}></alert-card>
       `
     )
   }
