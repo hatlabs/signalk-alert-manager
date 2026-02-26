@@ -5,7 +5,7 @@
  * Switches between alert-list and alert-detail based on user selection.
  */
 
-import { LitElement, html, css } from 'lit'
+import { LitElement, html, css, nothing } from 'lit'
 
 export class AlertApp extends LitElement {
   static properties = {
@@ -57,9 +57,10 @@ export class AlertApp extends LitElement {
   render() {
     return html`
       <h1>Alert Manager</h1>
+      <alert-list style=${this.selectedAlertId ? 'display:none' : ''}></alert-list>
       ${this.selectedAlertId
         ? html`<alert-detail alert-id="${this.selectedAlertId}"></alert-detail>`
-        : html`<alert-list></alert-list>`}
+        : nothing}
     `
   }
 }
