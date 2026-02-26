@@ -81,13 +81,13 @@ export class SimulationService {
     const scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)]
     const { priority } = pickWeighted(PRIORITY_WEIGHTS)
     const latching = Math.random() < 0.3
-    const sourceId = `simulation-${String(++this.counter)}`
+    const $source = `simulation-${String(++this.counter)}`
 
     fetch(`${API_BASE}/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sourceId,
+        $source,
         priority,
         message: `SIM: ${scenario.message}`,
         category: scenario.category,

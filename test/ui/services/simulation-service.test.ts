@@ -5,7 +5,7 @@ import type { Alert } from '../../../src/types.js'
 function makeAlert(overrides: Partial<Alert> = {}): Alert {
   return {
     id: crypto.randomUUID(),
-    sourceId: 'test',
+    $source: 'test',
     priority: 'warning',
     state: 'unacknowledged',
     condition: true,
@@ -77,7 +77,7 @@ describe('SimulationService', () => {
     expect(typeof body.priority).toBe('string')
     expect(['emergency', 'alarm', 'warning', 'caution']).toContain(body.priority)
     expect(body.message).toMatch(/^SIM: /)
-    expect(body.sourceId).toMatch(/^simulation-\d+$/)
+    expect(body.$source).toMatch(/^simulation-\d+$/)
 
     sim.stop()
   })
@@ -145,7 +145,7 @@ describe('SimulationService', () => {
     sim.stop()
   })
 
-  it('uses unique sourceId for each raised alert', () => {
+  it('uses unique $source for each raised alert', () => {
     const sim = new SimulationService(() => [])
     sim.start()
 
@@ -157,8 +157,8 @@ describe('SimulationService', () => {
 
     const body1 = JSON.parse(fetchMock.mock.calls[0][1].body)
     const body2 = JSON.parse(fetchMock.mock.calls[1][1].body)
-    expect(body1.sourceId).not.toBe(body2.sourceId)
-    expect(body1.sourceId).toMatch(/^simulation-\d+$/)
+    expect(body1.$source).not.toBe(body2.$source)
+    expect(body1.$source).toMatch(/^simulation-\d+$/)
 
     sim.stop()
   })

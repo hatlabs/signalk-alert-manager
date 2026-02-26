@@ -77,7 +77,7 @@ describe('OpenAPI specification', () => {
       const requiredFields = [
         'id',
         'path',
-        'sourceId',
+        '$source',
         'priority',
         'state',
         'condition',
@@ -97,7 +97,8 @@ describe('OpenAPI specification', () => {
       const expectedProperties = [
         'id',
         'path',
-        'sourceId',
+        '$source',
+        'source',
         'priority',
         'state',
         'condition',
@@ -164,7 +165,7 @@ describe('OpenAPI specification', () => {
     it('should define optional fields', () => {
       const schema = openApi.components.schemas.RaiseAlertRequest
       const props = Object.keys(schema.properties)
-      expect(props).toEqual(expect.arrayContaining(['sourceId', 'category', 'data', 'latching']))
+      expect(props).toEqual(expect.arrayContaining(['$source', 'category', 'data', 'latching']))
     })
   })
 

@@ -112,13 +112,13 @@ async function raiseTestAlert(
     message: string
     category: string
     latching: boolean
-    sourceId: string
+    $source: string
     data: Record<string, unknown>
   }>
 ): Promise<Alert> {
   return ctx.manager.raiseAlert({
     path: overrides?.path ?? 'test.alert',
-    sourceId: overrides?.sourceId ?? 'test-source',
+    $source: overrides?.$source ?? 'test-source',
     priority: (overrides?.priority ?? 'alarm') as Alert['priority'],
     message: overrides?.message ?? 'Test alert',
     category: overrides?.category,
@@ -233,7 +233,7 @@ describe('REST API Routes', () => {
 
     it('should filter by stale=true', async () => {
       const alert = await raiseTestAlert(ctx)
-      ctx.manager.markSourceOffline(alert.sourceId)
+      ctx.manager.markSourceOffline(alert.$source)
 
       const res = await fetch(`${ctx.baseUrl}/alerts?stale=true`)
       const body = (await res.json()) as Alert[]
@@ -247,7 +247,7 @@ describe('REST API Routes', () => {
         path: 'test.stale.stale',
         message: 'Stale alert'
       })
-      ctx.manager.markSourceOffline(staleAlert.sourceId)
+      ctx.manager.markSourceOffline(staleAlert.$source)
 
       const res = await fetch(`${ctx.baseUrl}/alerts?stale=false`)
       const body = (await res.json()) as Alert[]
@@ -303,7 +303,7 @@ describe('REST API Routes', () => {
       expect(body.id).toBeDefined()
       expect(body.priority).toBe('alarm')
       expect(body.message).toBe('Engine coolant temperature high')
-      expect(body.sourceId).toBe('rest-api')
+      expect(body.$source).toBe('rest-api')
     })
 
     it('should accept optional fields', async () => {
@@ -326,7 +326,7 @@ describe('REST API Routes', () => {
       expect(body.latching).toBe(true)
     })
 
-    it('should allow custom sourceId', async () => {
+    it('should allow custom $source', async () => {
       const res = await fetch(`${ctx.baseUrl}/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -334,12 +334,12 @@ describe('REST API Routes', () => {
           path: 'custom.source.alert',
           priority: 'alarm',
           message: 'Custom source alert',
-          sourceId: 'my-plugin'
+          $source: 'my-plugin'
         })
       })
       expect(res.status).toBe(201)
       const body = (await res.json()) as Alert
-      expect(body.sourceId).toBe('my-plugin')
+      expect(body.$source).toBe('my-plugin')
     })
 
     it('should return 400 when priority is missing', async () => {

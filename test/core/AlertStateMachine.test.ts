@@ -17,7 +17,7 @@ describe('AlertStateMachine', () => {
   function makeAlert(overrides: Partial<CreateAlertParams> = {}): Alert {
     return createAlert({
       path: 'test.alert',
-      sourceId: 'test-source',
+      $source: 'test-source',
       priority: 'alarm',
       message: 'Test alert',
       ...overrides

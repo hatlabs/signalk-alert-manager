@@ -15,7 +15,7 @@ import type { Alert, HistoryEntry } from '../../../src/types.js'
 function makeAlert(overrides: Partial<Alert> = {}): Alert {
   return {
     id: 'alert-1',
-    sourceId: 'engine-monitor',
+    $source: 'engine-monitor',
     priority: 'alarm',
     state: 'unacknowledged',
     condition: true,
@@ -159,7 +159,7 @@ describe('AlertDetail', () => {
     })
 
     it('displays source ID', async () => {
-      const el = await createElement(makeAlert({ sourceId: 'engine-monitor' }))
+      const el = await createElement(makeAlert({ $source: 'engine-monitor' }))
       const source = shadowQuery(el, '.source')
       expect(source?.textContent).toContain('engine-monitor')
     })

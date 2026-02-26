@@ -265,7 +265,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
     manager
       .raiseAlert({
         path: body.path,
-        sourceId: typeof body.sourceId === 'string' ? body.sourceId : 'rest-api',
+        $source: typeof body.$source === 'string' ? body.$source : 'rest-api',
         priority: body.priority as AlertPriority,
         message: body.message,
         category: typeof body.category === 'string' ? body.category : undefined,

@@ -392,13 +392,14 @@
       "Alert": {
         "type": "object",
         "required": [
-          "id", "path", "sourceId", "priority", "state", "condition", "latching",
+          "id", "path", "$source", "priority", "state", "condition", "latching",
           "silenced", "message", "raisedAt", "sourceOnline", "lastSourceUpdate", "stale"
         ],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "path": { "type": "string", "description": "Signal K path identifying the alert." },
-          "sourceId": { "type": "string" },
+          "$source": { "type": "string", "description": "Signal K source reference." },
+          "source": { "type": "object", "additionalProperties": true, "description": "Signal K structured source object." },
           "priority": { "$ref": "#/components/schemas/AlertPriority" },
           "state": { "$ref": "#/components/schemas/AlertState" },
           "condition": { "type": "boolean" },
@@ -449,9 +450,9 @@
             "minLength": 1,
             "maxLength": 1000
           },
-          "sourceId": {
+          "$source": {
             "type": "string",
-            "description": "Identifier for the alert source. Defaults to 'rest-api' when omitted."
+            "description": "Signal K source reference. Defaults to 'rest-api' when omitted."
           },
           "category": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },

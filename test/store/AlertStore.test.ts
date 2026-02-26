@@ -13,7 +13,7 @@ function createTestAlert(overrides: Partial<Alert> = {}): Alert {
   return {
     id: `test-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
     path: 'test.alert',
-    sourceId: 'test-source',
+    $source: 'test-source',
     priority: 'alarm',
     state: 'unacknowledged',
     condition: true,

@@ -454,7 +454,7 @@ export class AlertDetail extends LitElement {
             <span class="info-label">Path</span>
             <span class="info-value">${this.alert.path}</span>
             <span class="info-label">Source</span>
-            <span class="info-value source">${this.alert.sourceId}</span>
+            <span class="info-value source">${this.alert.$source}</span>
             <span class="info-label">Raised</span>
             <span class="info-value">${formatTime(this.alert.raisedAt)}</span>
             ${this.alert.acknowledgedAt
