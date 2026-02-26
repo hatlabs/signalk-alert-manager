@@ -567,4 +567,173 @@ describe('NotificationTransformer', () => {
     // Should not throw "Alert not found" since pathToAlertId was cleaned
     await new Promise((r) => setTimeout(r, 10))
   })
+
+  it('should not call raiseAlert redundantly for repeated alarm deltas', async () => {
+    const raiseAlertSpy = vi.spyOn(alertManager, 'raiseAlert')
+
+    const delta = createTestDelta({
+      updates: [
+        {
+          $source: 'n2k-on-ve.can-bus.115',
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    // First delta → should call raiseAlert
+    pushDelta(delta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    // Second and third deltas → should NOT call raiseAlert again
+    pushDelta(delta)
+    pushDelta(delta)
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(raiseAlertSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('should call raiseAlert again after alarm → clear → alarm cycle', async () => {
+    const raiseAlertSpy = vi.spyOn(alertManager, 'raiseAlert')
+
+    const alarmDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    const clearDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.normal, 'Normal')
+            }
+          ]
+        }
+      ]
+    })
+
+    // First alarm
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    // Clear
+    pushDelta(clearDelta)
+    await vi.waitFor(() => {
+      const alerts = alertManager.getAlerts()
+      expect(alerts.length === 0 || alerts[0].state === 'rtn-unacknowledged').toBe(true)
+    })
+
+    // Second alarm → should call raiseAlert again (reactivation)
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      const alerts = alertManager.getAlerts()
+      expect(alerts.some((a) => a.state === 'unacknowledged')).toBe(true)
+    })
+
+    expect(raiseAlertSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('should reactivate acknowledged alert after clear → alarm cycle', async () => {
+    const alarmDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    const clearDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.normal, 'Normal')
+            }
+          ]
+        }
+      ]
+    })
+
+    // 1. Alarm delta → raises alert
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+    const alertId = alertManager.getAlerts()[0].id
+    expect(alertManager.getAlerts()[0].state).toBe('unacknowledged')
+
+    // 2. Acknowledge the alert
+    await alertManager.acknowledgeAlert(alertId)
+    expect(alertManager.getAlert(alertId)?.state).toBe('acknowledged')
+
+    // 3. Clear delta → clears acknowledged alert (acknowledged + clearCondition = cleared)
+    pushDelta(clearDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(0)
+    })
+
+    // 4. Alarm delta again → should re-raise as new unacknowledged alert
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    const reactivated = alertManager.getAlerts()[0]
+    expect(reactivated.state).toBe('unacknowledged')
+    expect(reactivated.path).toBe('engine.overheating')
+  })
+
+  it('should update source liveness via heartbeat for repeated deltas', async () => {
+    const heartbeatSpy = vi.spyOn(alertManager, 'sourceHeartbeat')
+
+    const delta = createTestDelta({
+      updates: [
+        {
+          $source: 'n2k-on-ve.can-bus.115',
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    // First → raiseAlert
+    pushDelta(delta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    // Second → should heartbeat instead
+    pushDelta(delta)
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(heartbeatSpy).toHaveBeenCalledWith('n2k-on-ve.can-bus.115')
+  })
 })
