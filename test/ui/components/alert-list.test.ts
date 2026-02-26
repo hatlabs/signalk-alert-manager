@@ -417,6 +417,96 @@ describe('AlertList', () => {
     expect(cards).toHaveLength(3)
   })
 
+  describe('group separator', () => {
+    it('shows separator between unacknowledged and acknowledged alerts', async () => {
+      const alerts = [
+        makeAlert({ id: '1', state: 'unacknowledged' }),
+        makeAlert({ id: '2', state: 'acknowledged' })
+      ]
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(alerts)
+      })
+
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const separator = shadowQuery(el, '.group-separator')
+      expect(separator).not.toBeNull()
+    })
+
+    it('shows separator between rtn-unacknowledged and acknowledged alerts', async () => {
+      const alerts = [
+        makeAlert({ id: '1', state: 'rtn-unacknowledged' }),
+        makeAlert({ id: '2', state: 'acknowledged' })
+      ]
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(alerts)
+      })
+
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const separator = shadowQuery(el, '.group-separator')
+      expect(separator).not.toBeNull()
+    })
+
+    it('does not show separator when only unacknowledged alerts', async () => {
+      const alerts = [
+        makeAlert({ id: '1', state: 'unacknowledged' }),
+        makeAlert({ id: '2', state: 'unacknowledged' })
+      ]
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(alerts)
+      })
+
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const separator = shadowQuery(el, '.group-separator')
+      expect(separator).toBeNull()
+    })
+
+    it('does not show separator when only acknowledged alerts', async () => {
+      const alerts = [
+        makeAlert({ id: '1', state: 'acknowledged' }),
+        makeAlert({ id: '2', state: 'acknowledged' })
+      ]
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(alerts)
+      })
+
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      const separator = shadowQuery(el, '.group-separator')
+      expect(separator).toBeNull()
+    })
+  })
+
   describe('global silence button', () => {
     it('renders silence-all button', async () => {
       const el = document.createElement('alert-list') as HTMLElement & {

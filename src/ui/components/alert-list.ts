@@ -106,6 +106,13 @@ export class AlertList extends LitElement {
       display: flex;
       flex-direction: column;
     }
+
+    .group-separator {
+      height: 0;
+      border: none;
+      border-top: 1px solid #ccc;
+      margin: 0.5rem 0;
+    }
   `
 
   declare alerts: Alert[]
@@ -212,6 +219,25 @@ export class AlertList extends LitElement {
     })
   }
 
+  private isUnacked(alert: Alert): boolean {
+    return alert.state === 'unacknowledged' || alert.state === 'rtn-unacknowledged'
+  }
+
+  // Assumes alerts are sorted with all unacked states before acknowledged,
+  // per IMO MSC.302(87) default sort (enforced by applySort in alert-service).
+  private renderAlertList() {
+    const separatorIndex = this.alerts.findIndex(
+      (a, i) => !this.isUnacked(a) && i > 0 && this.isUnacked(this.alerts[i - 1])
+    )
+
+    return this.alerts.map(
+      (alert, i) => html`
+        ${i === separatorIndex ? html`<hr class="group-separator" />` : nothing}
+        <alert-card .alert=${alert}></alert-card>
+      `
+    )
+  }
+
   render() {
     return html`
       <div class="toolbar">
@@ -240,11 +266,7 @@ export class AlertList extends LitElement {
 
       ${this.alerts.length === 0
         ? html`<div class="empty">No alerts</div>`
-        : html`
-            <div class="list">
-              ${this.alerts.map((alert) => html`<alert-card .alert=${alert}></alert-card>`)}
-            </div>
-          `}
+        : html` <div class="list">${this.renderAlertList()}</div> `}
     `
   }
 }
