@@ -45,8 +45,11 @@ export interface Alert {
   /** Signal K path identifying the alert (e.g., "propulsion.main.coolantTemperature") */
   path: string
 
-  /** ID of the source (plugin, client) that raised the alert */
-  sourceId: string
+  /** Signal K source reference (e.g., "n2k-on-ve.can-bus.115", "rest-api") */
+  $source: string
+
+  /** Signal K structured source object, if available */
+  source?: Record<string, unknown>
 
   /** Alert priority level */
   priority: AlertPriority
@@ -344,7 +347,9 @@ export interface AlertTransitionResult {
  * Public API exposed on app.alertManager for other Signal K plugins.
  */
 export interface AlertManagerAPI {
-  raiseAlert(params: RaiseAlertRequest & { sourceId: string }): Promise<Alert>
+  raiseAlert(
+    params: RaiseAlertRequest & { $source: string; source?: Record<string, unknown> }
+  ): Promise<Alert>
   clearCondition(alertId: string): Promise<AlertTransitionResult>
   acknowledgeAlert(alertId: string, userId?: string): Promise<AlertTransitionResult>
   silenceAlert(alertId: string, durationMs?: number): Promise<Alert>

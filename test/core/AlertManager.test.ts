@@ -130,13 +130,13 @@ describe('AlertManager', () => {
     it('should create a new alert with correct initial state', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
 
       expect(alert.id).toBeDefined()
-      expect(alert.sourceId).toBe('test-source')
+      expect(alert.$source).toBe('test-source')
       expect(alert.priority).toBe('alarm')
       expect(alert.state).toBe('unacknowledged')
       expect(alert.condition).toBe(true)
@@ -148,7 +148,7 @@ describe('AlertManager', () => {
     it('should emit alert-raised event', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -161,7 +161,7 @@ describe('AlertManager', () => {
     it('should store alert in internal collection', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -173,7 +173,7 @@ describe('AlertManager', () => {
     it('should start escalation timer for warning priority', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -190,7 +190,7 @@ describe('AlertManager', () => {
     it('should not start escalation timer for alarm priority', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alarm'
       })
@@ -201,7 +201,7 @@ describe('AlertManager', () => {
     it('should support optional category and data', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Engine alert',
         category: 'engine',
@@ -215,7 +215,7 @@ describe('AlertManager', () => {
     it('should support latching alerts', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Latching alert',
         latching: true
@@ -229,7 +229,7 @@ describe('AlertManager', () => {
     it('should transition unacknowledged to acknowledged', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -244,7 +244,7 @@ describe('AlertManager', () => {
     it('should emit alert-acknowledged event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -259,7 +259,7 @@ describe('AlertManager', () => {
     it('should cancel escalation timer on acknowledge', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -274,7 +274,7 @@ describe('AlertManager', () => {
     it('should clear RTN-unacknowledged alert on acknowledge', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -296,7 +296,7 @@ describe('AlertManager', () => {
     it('should set silenced flag and silencedUntil', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -310,7 +310,7 @@ describe('AlertManager', () => {
     it('should emit alert-silenced event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -325,7 +325,7 @@ describe('AlertManager', () => {
     it('should use default duration from config for alarm', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -345,7 +345,7 @@ describe('AlertManager', () => {
     it('should use shorter duration for emergency', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'emergency',
         message: 'Test emergency'
       })
@@ -371,7 +371,7 @@ describe('AlertManager', () => {
     it('should transition acknowledged alert to cleared', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -386,7 +386,7 @@ describe('AlertManager', () => {
     it('should transition unacknowledged to rtn-unacknowledged', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -400,7 +400,7 @@ describe('AlertManager', () => {
     it('should auto-clear caution alerts', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'caution',
         message: 'Test caution'
       })
@@ -414,7 +414,7 @@ describe('AlertManager', () => {
     it('should emit alert-cleared event when removed', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -430,7 +430,7 @@ describe('AlertManager', () => {
     it('should cancel escalation timer when clearing warning', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -451,7 +451,7 @@ describe('AlertManager', () => {
     it('should escalate warning to alarm after timeout', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -468,7 +468,7 @@ describe('AlertManager', () => {
     it('should not escalate if acknowledged before timeout', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -489,7 +489,7 @@ describe('AlertManager', () => {
 
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -505,7 +505,7 @@ describe('AlertManager', () => {
     it('should mark alert as stale when source goes offline', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -520,7 +520,7 @@ describe('AlertManager', () => {
     it('should update lastSourceUpdate on heartbeat', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -544,7 +544,7 @@ describe('AlertManager', () => {
     it('should mark source back online on heartbeat after offline', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -560,14 +560,14 @@ describe('AlertManager', () => {
     it('should only affect alerts from specified source', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
 
       const alert2 = await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -584,13 +584,13 @@ describe('AlertManager', () => {
     it('should return all active alerts', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'warning',
         message: 'Alert 2'
       })
@@ -603,13 +603,13 @@ describe('AlertManager', () => {
     it('should filter by state', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -626,13 +626,13 @@ describe('AlertManager', () => {
     it('should filter by priority', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'warning',
         message: 'Alert 2'
       })
@@ -646,14 +646,14 @@ describe('AlertManager', () => {
     it('should filter by category', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1',
         category: 'engine'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2',
         category: 'navigation'
@@ -670,7 +670,7 @@ describe('AlertManager', () => {
     it('should update existing alert with same path', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert',
         data: { value: 1 }
@@ -678,7 +678,7 @@ describe('AlertManager', () => {
 
       const alert2 = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert',
         data: { value: 2 }
@@ -693,14 +693,14 @@ describe('AlertManager', () => {
     it('should create separate alerts for different paths', async () => {
       await manager.raiseAlert({
         path: 'test.alert.msg1',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Alert 1'
       })
 
       await manager.raiseAlert({
         path: 'test.alert.msg2',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -711,7 +711,7 @@ describe('AlertManager', () => {
     it('should emit alert-updated event for duplicate', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
@@ -719,7 +719,7 @@ describe('AlertManager', () => {
 
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
@@ -731,14 +731,14 @@ describe('AlertManager', () => {
     it('should dedup by path regardless of message', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'propulsion.main.coolantTemperature',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Coolant temp high'
       })
 
       const alert2 = await manager.raiseAlert({
         path: 'propulsion.main.coolantTemperature',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Coolant temp very high'
       })
@@ -751,14 +751,14 @@ describe('AlertManager', () => {
     it('should dedup by path across different sources', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'propulsion.main.coolantTemperature',
-        sourceId: 'source-A',
+        $source: 'source-A',
         priority: 'warning',
         message: 'From source A'
       })
 
       const alert2 = await manager.raiseAlert({
         path: 'propulsion.main.coolantTemperature',
-        sourceId: 'source-B',
+        $source: 'source-B',
         priority: 'alarm',
         message: 'From source B'
       })
@@ -770,14 +770,14 @@ describe('AlertManager', () => {
     it('should update message on re-raise', async () => {
       await manager.raiseAlert({
         path: 'engine.overheating',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Temperature 85°C'
       })
 
       const updated = await manager.raiseAlert({
         path: 'engine.overheating',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Temperature 92°C'
       })
@@ -800,7 +800,7 @@ describe('AlertManager', () => {
     it('should save alert to store on raise', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -812,7 +812,7 @@ describe('AlertManager', () => {
     it('should update store on acknowledge', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -825,7 +825,7 @@ describe('AlertManager', () => {
     it('should delete from store when alert is cleared', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -843,7 +843,7 @@ describe('AlertManager', () => {
 
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -856,13 +856,13 @@ describe('AlertManager', () => {
     it('should cancel all escalation timers on stop', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'warning',
         message: 'Warning 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'warning',
         message: 'Warning 2'
       })
@@ -877,7 +877,7 @@ describe('AlertManager', () => {
     it('should not emit events after stop', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -894,13 +894,13 @@ describe('AlertManager', () => {
     it('should silence all unacknowledged alerts', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       const alert2 = await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -914,13 +914,13 @@ describe('AlertManager', () => {
     it('should emit silenced events for each alert', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -935,7 +935,7 @@ describe('AlertManager', () => {
     it('should not silence already silenced alerts', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -955,7 +955,7 @@ describe('AlertManager', () => {
 
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
@@ -964,7 +964,7 @@ describe('AlertManager', () => {
 
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -977,13 +977,13 @@ describe('AlertManager', () => {
     it('should return count of unacknowledged alerts', async () => {
       const alert1 = await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2'
       })
@@ -1008,7 +1008,7 @@ describe('AlertManager', () => {
       // Add unacknowledged alarm
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1030,13 +1030,13 @@ describe('AlertManager', () => {
     it('should return highest priority among unacknowledged', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'source-1',
+        $source: 'source-1',
         priority: 'warning',
         message: 'Warning'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'source-2',
+        $source: 'source-2',
         priority: 'alarm',
         message: 'Alarm'
       })
@@ -1050,7 +1050,7 @@ describe('AlertManager', () => {
     it('should remove silenced flag from alert', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1067,7 +1067,7 @@ describe('AlertManager', () => {
     it('should emit unsilenced event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1089,7 +1089,7 @@ describe('AlertManager', () => {
     it('should automatically unsilence alert after duration', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1105,7 +1105,7 @@ describe('AlertManager', () => {
     it('should emit unsilenced event on expiration', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1122,7 +1122,7 @@ describe('AlertManager', () => {
     it('should cancel expiration timer when manually unsilenced', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1140,7 +1140,7 @@ describe('AlertManager', () => {
     it('should cancel expiration timer when alert is cleared', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1160,7 +1160,7 @@ describe('AlertManager', () => {
     it('should clear stale flag on alert', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1177,7 +1177,7 @@ describe('AlertManager', () => {
     it('should emit updated event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1199,14 +1199,14 @@ describe('AlertManager', () => {
     it('should allow source to escalate priority', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
 
       const updated = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1218,14 +1218,14 @@ describe('AlertManager', () => {
     it('should not allow priority reduction', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
 
       const updated = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
@@ -1237,7 +1237,7 @@ describe('AlertManager', () => {
     it('should cancel escalation timer when priority is escalated by source', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
@@ -1246,7 +1246,7 @@ describe('AlertManager', () => {
 
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1269,7 +1269,7 @@ describe('AlertManager', () => {
     it('should persist escalation to store', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -1289,7 +1289,7 @@ describe('AlertManager', () => {
 
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1302,7 +1302,7 @@ describe('AlertManager', () => {
     it('should handle silencing an already silenced alert', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1333,7 +1333,7 @@ describe('AlertManager', () => {
       return {
         id: `stored-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
         path: 'stored.alert',
-        sourceId: 'stored-source',
+        $source: 'stored-source',
         priority: 'alarm',
         state: 'unacknowledged',
         condition: true,
@@ -1371,7 +1371,7 @@ describe('AlertManager', () => {
     it('should rebuild alert index for duplicate detection', async () => {
       const alert = createStoredAlert({
         id: 'stored-1',
-        sourceId: 'test-source',
+        $source: 'test-source',
         message: 'Test message'
       })
       store.prePopulate([alert])
@@ -1381,7 +1381,7 @@ describe('AlertManager', () => {
       // Raising an alert with the same path should update the existing one
       const updated = await manager.raiseAlert({
         path: 'stored.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test message'
       })
@@ -1589,7 +1589,7 @@ describe('AlertManager', () => {
     it('should preserve all alert fields when loading', async () => {
       const fullAlert = createStoredAlert({
         id: 'full-alert',
-        sourceId: 'source-123',
+        $source: 'source-123',
         priority: 'emergency',
         state: 'acknowledged',
         condition: false,
@@ -1614,7 +1614,7 @@ describe('AlertManager', () => {
       // Create an alert
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Persistent alert'
       })
@@ -1682,7 +1682,7 @@ describe('AlertManager', () => {
     it('should log raise event', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1695,7 +1695,7 @@ describe('AlertManager', () => {
     it('should log acknowledge event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1713,7 +1713,7 @@ describe('AlertManager', () => {
     it('should log clear event with newState cleared when RTN alert is acknowledged', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1730,7 +1730,7 @@ describe('AlertManager', () => {
     it('should log silence event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1746,7 +1746,7 @@ describe('AlertManager', () => {
     it('should log unsilence event', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1762,7 +1762,7 @@ describe('AlertManager', () => {
     it('should log clear event with newState cleared on clearCondition (when alert is removed)', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1779,7 +1779,7 @@ describe('AlertManager', () => {
     it('should log clear event on clearCondition (RTN transition)', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1795,7 +1795,7 @@ describe('AlertManager', () => {
     it('should log escalate event', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test warning'
       })
@@ -1815,7 +1815,7 @@ describe('AlertManager', () => {
     it('should log unsilence event on silence expiration', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1833,13 +1833,13 @@ describe('AlertManager', () => {
     it('should log silence events for each alert in silenceAll', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Alert 1'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Alert 2'
       })
@@ -1855,7 +1855,7 @@ describe('AlertManager', () => {
     it('should log escalate event when re-raising with higher priority', async () => {
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'warning',
         message: 'Test alert'
       })
@@ -1863,7 +1863,7 @@ describe('AlertManager', () => {
 
       await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1879,7 +1879,7 @@ describe('AlertManager', () => {
       const silencedAlert: Alert = {
         id: 'expired-silence-1',
         path: 'test.expired.silence',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         state: 'unacknowledged',
         condition: true,
@@ -1914,7 +1914,7 @@ describe('AlertManager', () => {
 
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })
@@ -1939,7 +1939,7 @@ describe('AlertManager', () => {
 
       const alert = await manager.raiseAlert({
         path: 'test.alert',
-        sourceId: 'test-source',
+        $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert'
       })

@@ -87,13 +87,22 @@ export class NotificationTransformer {
       if (!hasValues(update)) {
         continue
       }
+      const updateSource = (update as Record<string, unknown>).$source as string | undefined
+      const updateSourceObj = (update as Record<string, unknown>).source as
+        | Record<string, unknown>
+        | undefined
       for (const pv of update.values) {
         const path = String(pv.path)
         if (!path.startsWith('notifications.')) {
           continue
         }
         this.enqueueOperation(path, () =>
-          this.handleNotificationValue(path, pv.value as Notification | null)
+          this.handleNotificationValue(
+            path,
+            pv.value as Notification | null,
+            updateSource,
+            updateSourceObj
+          )
         )
       }
     }
@@ -111,7 +120,12 @@ export class NotificationTransformer {
     this.pendingOps.set(path, next)
   }
 
-  private async handleNotificationValue(path: string, value: Notification | null): Promise<void> {
+  private async handleNotificationValue(
+    path: string,
+    value: Notification | null,
+    $source?: string,
+    source?: Record<string, unknown>
+  ): Promise<void> {
     if (this.stopped) {
       return
     }
@@ -139,14 +153,14 @@ export class NotificationTransformer {
       return
     }
 
-    const sourceId = `notifications:${path}`
     // Strip "notifications." prefix — it's a tree location, not identity
     const alertPath = path.startsWith('notifications.') ? path.slice('notifications.'.length) : path
     const category = this.extractCategory(path)
 
     const alert = await this.deps.alertManager.raiseAlert({
       path: alertPath,
-      sourceId,
+      $source: $source ?? 'notifications',
+      source,
       priority,
       message: value.message,
       category

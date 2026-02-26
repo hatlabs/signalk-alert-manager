@@ -95,8 +95,8 @@ Each alert tracks its source. If a source stops sending updates, the alert is ma
 **Who creates alerts?** Alerts enter the system through three paths:
 
 - **Signal K notifications** — The plugin automatically intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins' notifications enter the system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
-- **Plugin API** — Other Signal K plugins raise alerts programmatically by calling `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and optionally a `sourceId` to identify themselves.
-- **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `sourceId` is optional and defaults to `rest-api`.
+- **Plugin API** — Other Signal K plugins raise alerts programmatically by calling `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and a `$source` to identify themselves.
+- **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `$source` is optional and defaults to `'rest-api'`.
 
 Each alert is identified by its `path` (with optional `context` for multi-vessel deployments). When the same path is raised again, the existing alert is updated (message refreshed, priority escalated if higher) rather than creating a duplicate.
 
@@ -262,7 +262,7 @@ Other Signal K plugins can interact with alerts programmatically via `app.alertM
 ```typescript
 // Raise an alert
 const alert = await app.alertManager.raiseAlert({
-  sourceId: 'my-plugin',
+  $source: 'my-plugin',
   priority: 'warning',
   message: 'Anchor watch: vessel outside radius',
   category: 'navigation',

@@ -154,7 +154,8 @@ type AlertState = 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
 interface Alert {
   id: string;
   path: string;                  // Signal K path (dedup key with context)
-  sourceId: string;
+  $source: string;               // Signal K source reference
+  source?: Record<string, unknown>; // Structured source object
   priority: AlertPriority;
   state: AlertState;
   condition: boolean;

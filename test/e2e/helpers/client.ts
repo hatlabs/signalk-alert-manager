@@ -70,7 +70,7 @@ export class AlertClient {
     category?: string
     data?: Record<string, unknown>
     latching?: boolean
-    sourceId?: string
+    $source?: string
   }): Promise<Response> {
     return fetch(this.url('/alerts'), {
       method: 'POST',
@@ -153,7 +153,7 @@ export class AlertClient {
     category?: string
     data?: Record<string, unknown>
     latching?: boolean
-    sourceId?: string
+    $source?: string
   }): Promise<Alert> {
     const res = await this.raiseAlert(body)
     return (await res.json()) as Alert

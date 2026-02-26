@@ -497,11 +497,11 @@ export class AlertManager extends EventEmitter {
    * Update last seen timestamp for a source.
    * Called when a heartbeat is received from a source.
    */
-  sourceHeartbeat(sourceId: string): void {
+  sourceHeartbeat($source: string): void {
     const now = new Date().toISOString()
 
     for (const alert of this.alerts.values()) {
-      if (alert.sourceId === sourceId) {
+      if (alert.$source === $source) {
         const updated = {
           ...alert,
           lastSourceUpdate: now,
@@ -516,9 +516,9 @@ export class AlertManager extends EventEmitter {
    * Mark all alerts from a source as stale.
    * Called when a source goes offline.
    */
-  markSourceOffline(sourceId: string): void {
+  markSourceOffline($source: string): void {
     for (const alert of this.alerts.values()) {
-      if (alert.sourceId === sourceId) {
+      if (alert.$source === $source) {
         const updated = {
           ...alert,
           stale: true,
@@ -625,7 +625,8 @@ export class AlertManager extends EventEmitter {
 
     const updated: Alert = {
       ...existing,
-      sourceId: params.sourceId,
+      $source: params.$source,
+      source: params.source ?? existing.source,
       priority: newPriority,
       message: params.message,
       data: params.data,

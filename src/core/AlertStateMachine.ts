@@ -16,8 +16,10 @@ import type { Alert, AlertPriority, AlertState } from '../types.js'
 export interface CreateAlertParams {
   /** Signal K path identifying the alert */
   path: string
-  /** ID of the source (plugin, client) that raised the alert */
-  sourceId: string
+  /** Signal K source reference (e.g., "n2k-on-ve.can-bus.115", "rest-api") */
+  $source: string
+  /** Signal K structured source object, if available */
+  source?: Record<string, unknown>
   /** Alert priority level */
   priority: AlertPriority
   /** Human-readable alert message */
@@ -60,7 +62,8 @@ export function createAlert(params: CreateAlertParams): Alert {
   return {
     id: generateUUID(),
     path: params.path,
-    sourceId: params.sourceId,
+    $source: params.$source,
+    source: params.source,
     priority: params.priority,
     state: 'unacknowledged',
     condition: true,

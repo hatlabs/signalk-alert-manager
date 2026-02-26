@@ -54,7 +54,7 @@ describe('DeltaPublisher', () => {
   it('should publish delta when alert is raised', async () => {
     await alertManager.raiseAlert({
       path: 'engine.overheating',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Engine overheating',
       category: 'engine'
@@ -81,7 +81,7 @@ describe('DeltaPublisher', () => {
   it('should publish null for cleared alert', async () => {
     const alert = await alertManager.raiseAlert({
       path: 'electrical.battery.low',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'caution',
       message: 'Low battery'
     })
@@ -98,7 +98,7 @@ describe('DeltaPublisher', () => {
   it('should publish updated state on acknowledge', async () => {
     const alert = await alertManager.raiseAlert({
       path: 'engine.overheating.ack',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Engine overheating'
     })
@@ -114,7 +114,7 @@ describe('DeltaPublisher', () => {
   it('should publish updated state on silence', async () => {
     const alert = await alertManager.raiseAlert({
       path: 'engine.overheating.silence',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Engine overheating'
     })
@@ -130,7 +130,7 @@ describe('DeltaPublisher', () => {
   it('should publish updated priority on escalation', async () => {
     await alertManager.raiseAlert({
       path: 'engine.temperature.rising',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'warning',
       message: 'Engine temperature rising'
     })
@@ -147,7 +147,7 @@ describe('DeltaPublisher', () => {
   it('should set delta context to vessels.self', async () => {
     await alertManager.raiseAlert({
       path: 'test.context',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
@@ -158,7 +158,7 @@ describe('DeltaPublisher', () => {
   it('should set source label to alert-manager', async () => {
     await alertManager.raiseAlert({
       path: 'test.source',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
@@ -173,7 +173,7 @@ describe('DeltaPublisher', () => {
 
     await alertManager.raiseAlert({
       path: 'test.stopped',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
@@ -187,7 +187,7 @@ describe('DeltaPublisher', () => {
 
     await alertManager.raiseAlert({
       path: 'test.dedup',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
@@ -215,7 +215,7 @@ describe('DeltaPublisher', () => {
     // Should not throw despite broken handleMessage
     await alertManager.raiseAlert({
       path: 'test.broken1',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
@@ -225,7 +225,7 @@ describe('DeltaPublisher', () => {
     // Subsequent events should still work (listener not killed)
     await alertManager.raiseAlert({
       path: 'test.broken2',
-      sourceId: 'test2',
+      $source: 'test2',
       priority: 'warning',
       message: 'Test 2'
     })
@@ -237,7 +237,7 @@ describe('DeltaPublisher', () => {
   it('should include indication state on every event', async () => {
     await alertManager.raiseAlert({
       path: 'test.indication',
-      sourceId: 'test',
+      $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })

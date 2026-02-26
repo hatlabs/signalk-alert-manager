@@ -117,7 +117,8 @@ interface Alert {
   // Identity
   id: string;                    // Unique alert instance ID (UUID)
   path: string;                  // Signal K path identifying the alert (dedup key)
-  sourceId: string;              // ID of the source that raised the alert
+  $source: string;               // Signal K source reference (e.g., "n2k-on-ve.can-bus.115")
+  source?: Record<string, unknown>; // Signal K structured source object, if available
 
   // Classification
   priority: 'emergency' | 'alarm' | 'warning' | 'caution';

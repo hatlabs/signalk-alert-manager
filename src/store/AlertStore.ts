@@ -80,18 +80,19 @@ export class AlertStore implements IAlertStore {
 
       const stmt = db.prepare(`
         INSERT INTO alerts (
-          id, path, source_id, priority, state, condition, latching, silenced,
+          id, path, source_ref, source_obj, priority, state, condition, latching, silenced,
           silenced_until, message, category, data, raised_at, acknowledged_at,
           acknowledged_by, cleared_at, source_online, last_source_update, stale, context
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `)
 
       stmt.run(
         alert.id,
         alert.path,
-        alert.sourceId,
+        alert.$source,
+        alert.source ? JSON.stringify(alert.source) : null,
         alert.priority,
         alert.state,
         alert.condition ? 1 : 0,
@@ -190,7 +191,8 @@ export class AlertStore implements IAlertStore {
       const stmt = db.prepare(`
         UPDATE alerts SET
           path = ?,
-          source_id = ?,
+          source_ref = ?,
+          source_obj = ?,
           priority = ?,
           state = ?,
           condition = ?,
@@ -213,7 +215,8 @@ export class AlertStore implements IAlertStore {
 
       const result = stmt.run(
         alert.path,
-        alert.sourceId,
+        alert.$source,
+        alert.source ? JSON.stringify(alert.source) : null,
         alert.priority,
         alert.state,
         alert.condition ? 1 : 0,
@@ -278,6 +281,9 @@ export class AlertStore implements IAlertStore {
 
     if (currentVersion < 1) {
       this.migrateToV1(db)
+    }
+    if (currentVersion < 2) {
+      this.migrateToV2(db)
     }
   }
 
@@ -355,6 +361,28 @@ export class AlertStore implements IAlertStore {
   }
 
   /**
+   * Migration to schema version 2.
+   * Renames source_id → source_ref, adds source_obj column.
+   */
+  private migrateToV2(db: DatabaseSync): void {
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec('ALTER TABLE alerts RENAME COLUMN source_id TO source_ref')
+      db.exec('ALTER TABLE alerts ADD COLUMN source_obj TEXT')
+      db.exec('DROP INDEX IF EXISTS idx_alerts_source_id')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_source_ref ON alerts(source_ref)')
+
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(2, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
    * Get the database, throwing if not initialized.
    */
   private getDb(): DatabaseSync {
@@ -371,7 +399,7 @@ export class AlertStore implements IAlertStore {
     const alert: Alert = {
       id: row.id,
       path: row.path,
-      sourceId: row.source_id,
+      $source: row.source_ref,
       priority: row.priority as Alert['priority'],
       state: row.state as Alert['state'],
       condition: row.condition === 1,
@@ -385,6 +413,13 @@ export class AlertStore implements IAlertStore {
     }
 
     // Add optional fields if present
+    if (row.source_obj) {
+      try {
+        alert.source = JSON.parse(row.source_obj) as Record<string, unknown>
+      } catch {
+        // Malformed JSON in database - skip this field rather than failing entirely
+      }
+    }
     if (row.silenced_until) {
       alert.silencedUntil = row.silenced_until
     }
@@ -421,7 +456,8 @@ export class AlertStore implements IAlertStore {
 interface AlertRow {
   id: string
   path: string
-  source_id: string
+  source_ref: string
+  source_obj: string | null
   priority: string
   state: string
   condition: number

@@ -33,7 +33,7 @@ describe('TypeScript Types', () => {
       const alert: Alert = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         path: 'propulsion.main.coolantTemperature',
-        sourceId: 'plugin-xyz',
+        $source: 'plugin-xyz',
         priority: 'alarm',
         state: 'unacknowledged',
         condition: true,
@@ -53,7 +53,7 @@ describe('TypeScript Types', () => {
       const alert: Alert = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         path: 'tanks.fuel.0.currentLevel',
-        sourceId: 'plugin-xyz',
+        $source: 'plugin-xyz',
         priority: 'warning',
         state: 'acknowledged',
         condition: true,

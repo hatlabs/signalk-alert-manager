@@ -109,9 +109,62 @@ describe('NotificationTransformer', () => {
     expect(alerts).toHaveLength(1)
     expect(alerts[0].priority).toBe('alarm')
     expect(alerts[0].path).toBe('engine.overheating')
-    expect(alerts[0].sourceId).toBe('notifications:notifications.engine.overheating')
+    expect(alerts[0].$source).toBe('notifications')
     expect(alerts[0].category).toBe('engine')
     expect(alerts[0].message).toBe('Engine overheating')
+  })
+
+  it('should pass through $source from delta update', async () => {
+    const delta = createTestDelta({
+      updates: [
+        {
+          $source: 'n2k-on-ve.can-bus.115',
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    expect(alertManager.getAlerts()[0].$source).toBe('n2k-on-ve.can-bus.115')
+  })
+
+  it('should pass through source object from delta update', async () => {
+    const sourceObj = {
+      type: 'NMEA2000',
+      pgn: 127489,
+      label: 'N2K device',
+      src: '115'
+    }
+    const delta = createTestDelta({
+      updates: [
+        {
+          $source: 'n2k-on-ve.can-bus.115',
+          source: sourceObj,
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    expect(alertManager.getAlerts()[0].source).toEqual(sourceObj)
   })
 
   it('should map emergency state to emergency priority', async () => {

@@ -15,7 +15,7 @@ import type { Alert, AlertPriority } from '../../../src/types.js'
 function makeAlert(overrides: Partial<Alert> = {}): Alert {
   return {
     id: crypto.randomUUID(),
-    sourceId: 'test',
+    $source: 'test',
     priority: 'warning',
     state: 'unacknowledged',
     condition: true,
