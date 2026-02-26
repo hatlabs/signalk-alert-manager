@@ -51,6 +51,7 @@ describe('REST API Endpoints', () => {
   describe('POST /alerts', () => {
     it('should return 201 when raising a valid alert', async () => {
       const res = await client.raiseAlert({
+        path: 'test.restapi.raise',
         priority: 'warning',
         message: 'REST API test alert'
       })
@@ -80,6 +81,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 400 when message is empty', async () => {
       const res = await client.raiseAlert({
+        path: 'test.restapi.empty',
         priority: 'warning',
         message: ''
       })
@@ -157,6 +159,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 200 for existing alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.restapi.getbyid',
         priority: 'caution',
         message: 'Get by ID test'
       })
@@ -176,6 +179,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 200 for existing alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.restapi.ack',
         priority: 'warning',
         message: 'Ack test alert'
       })
@@ -193,6 +197,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 200 for existing alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.restapi.silence',
         priority: 'alarm',
         message: 'Silence test alert'
       })
@@ -205,6 +210,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 400 for invalid duration', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.restapi.invalidduration',
         priority: 'alarm',
         message: 'Invalid silence duration test'
       })
@@ -222,6 +228,7 @@ describe('REST API Endpoints', () => {
 
     it('should return 400 when active is not a boolean', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.restapi.condition',
         priority: 'warning',
         message: 'Condition validation test'
       })
@@ -243,16 +250,19 @@ describe('REST API Endpoints', () => {
       // Clear existing alerts by acknowledging them or letting them be
       // Raise fresh alerts with known properties
       await client.raiseAlert({
+        path: 'test.filter.warning',
         priority: 'warning',
         message: 'Filter test warning',
         category: 'engine'
       })
       await client.raiseAlert({
+        path: 'test.filter.alarm',
         priority: 'alarm',
         message: 'Filter test alarm',
         category: 'navigation'
       })
       await client.raiseAlert({
+        path: 'test.filter.caution',
         priority: 'caution',
         message: 'Filter test caution',
         category: 'engine'

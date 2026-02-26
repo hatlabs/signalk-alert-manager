@@ -140,9 +140,12 @@ export class NotificationTransformer {
     }
 
     const sourceId = `notifications:${path}`
+    // Strip "notifications." prefix — it's a tree location, not identity
+    const alertPath = path.startsWith('notifications.') ? path.slice('notifications.'.length) : path
     const category = this.extractCategory(path)
 
     const alert = await this.deps.alertManager.raiseAlert({
+      path: alertPath,
       sourceId,
       priority,
       message: value.message,

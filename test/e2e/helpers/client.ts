@@ -64,6 +64,7 @@ export class AlertClient {
 
   /** POST /alerts — raise a new alert */
   async raiseAlert(body: {
+    path: string
     priority: string
     message: string
     category?: string
@@ -146,6 +147,7 @@ export class AlertClient {
   }
 
   async raiseAlertJson(body: {
+    path: string
     priority: string
     message: string
     category?: string

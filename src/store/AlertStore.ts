@@ -80,16 +80,17 @@ export class AlertStore implements IAlertStore {
 
       const stmt = db.prepare(`
         INSERT INTO alerts (
-          id, source_id, priority, state, condition, latching, silenced,
+          id, path, source_id, priority, state, condition, latching, silenced,
           silenced_until, message, category, data, raised_at, acknowledged_at,
           acknowledged_by, cleared_at, source_online, last_source_update, stale, context
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `)
 
       stmt.run(
         alert.id,
+        alert.path,
         alert.sourceId,
         alert.priority,
         alert.state,
@@ -188,6 +189,7 @@ export class AlertStore implements IAlertStore {
 
       const stmt = db.prepare(`
         UPDATE alerts SET
+          path = ?,
           source_id = ?,
           priority = ?,
           state = ?,
@@ -210,6 +212,7 @@ export class AlertStore implements IAlertStore {
       `)
 
       const result = stmt.run(
+        alert.path,
         alert.sourceId,
         alert.priority,
         alert.state,
@@ -276,9 +279,6 @@ export class AlertStore implements IAlertStore {
     if (currentVersion < 1) {
       this.migrateToV1(db)
     }
-
-    // Future migrations go here:
-    // if (currentVersion < 2) { this.migrateToV2(db) }
   }
 
   /**
@@ -291,6 +291,7 @@ export class AlertStore implements IAlertStore {
       db.exec(`
         CREATE TABLE IF NOT EXISTS alerts (
           id TEXT PRIMARY KEY,
+          path TEXT NOT NULL,
           source_id TEXT NOT NULL,
           priority TEXT NOT NULL,
           state TEXT NOT NULL,
@@ -318,6 +319,7 @@ export class AlertStore implements IAlertStore {
         CREATE INDEX IF NOT EXISTS idx_alerts_priority ON alerts(priority);
         CREATE INDEX IF NOT EXISTS idx_alerts_category ON alerts(category);
         CREATE INDEX IF NOT EXISTS idx_alerts_source_id ON alerts(source_id);
+        CREATE INDEX IF NOT EXISTS idx_alerts_path ON alerts(path);
       `)
 
       // Create history table for future use (Issue #12)
@@ -368,6 +370,7 @@ export class AlertStore implements IAlertStore {
   private rowToAlert(row: AlertRow): Alert {
     const alert: Alert = {
       id: row.id,
+      path: row.path,
       sourceId: row.source_id,
       priority: row.priority as Alert['priority'],
       state: row.state as Alert['state'],
@@ -417,6 +420,7 @@ export class AlertStore implements IAlertStore {
  */
 interface AlertRow {
   id: string
+  path: string
   source_id: string
   priority: string
   state: string

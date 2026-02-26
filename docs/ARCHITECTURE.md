@@ -153,6 +153,7 @@ type AlertState = 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
 // Full alert instance
 interface Alert {
   id: string;
+  path: string;                  // Signal K path (dedup key with context)
   sourceId: string;
   priority: AlertPriority;
   state: AlertState;

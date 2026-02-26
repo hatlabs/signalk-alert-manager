@@ -392,11 +392,12 @@
       "Alert": {
         "type": "object",
         "required": [
-          "id", "sourceId", "priority", "state", "condition", "latching",
+          "id", "path", "sourceId", "priority", "state", "condition", "latching",
           "silenced", "message", "raisedAt", "sourceOnline", "lastSourceUpdate", "stale"
         ],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
+          "path": { "type": "string", "description": "Signal K path identifying the alert." },
           "sourceId": { "type": "string" },
           "priority": { "$ref": "#/components/schemas/AlertPriority" },
           "state": { "$ref": "#/components/schemas/AlertState" },
@@ -435,8 +436,13 @@
       "RaiseAlertRequest": {
         "type": "object",
         "description": "Alerts raised via the REST API are always scoped to vessels.self. Vessel context is not configurable through this endpoint.",
-        "required": ["priority", "message"],
+        "required": ["path", "priority", "message"],
         "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Signal K path identifying the alert (e.g., 'propulsion.main.coolantTemperature')."
+          },
           "priority": { "$ref": "#/components/schemas/AlertPriority" },
           "message": {
             "type": "string",

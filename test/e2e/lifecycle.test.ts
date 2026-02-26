@@ -27,6 +27,7 @@ describe('Alert Lifecycle', () => {
 
     it('should raise an alert in unacknowledged state', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.lifecycle.nonlatching',
         priority: 'warning',
         message: 'Test lifecycle alert',
         category: 'test'
@@ -68,6 +69,7 @@ describe('Alert Lifecycle', () => {
 
     it('should raise an alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.lifecycle.transient',
         priority: 'alarm',
         message: 'Transient alarm'
       })
@@ -98,6 +100,7 @@ describe('Alert Lifecycle', () => {
 
     it('should raise a caution alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.lifecycle.caution',
         priority: 'caution',
         message: 'Auto-clear caution'
       })
@@ -118,6 +121,7 @@ describe('Alert Lifecycle', () => {
 
     it('should raise a latching alert', async () => {
       const alert = await client.raiseAlertJson({
+        path: 'test.lifecycle.latching',
         priority: 'warning',
         message: 'Latching test alert',
         category: 'engine',

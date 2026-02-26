@@ -12,6 +12,7 @@ function createTestAlert(overrides: Partial<Alert> = {}): Alert {
   const now = new Date().toISOString()
   return {
     id: `test-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
+    path: 'test.alert',
     sourceId: 'test-source',
     priority: 'alarm',
     state: 'unacknowledged',

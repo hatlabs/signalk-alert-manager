@@ -42,6 +42,9 @@ export interface Alert {
   /** Unique alert instance ID (UUID) */
   id: string
 
+  /** Signal K path identifying the alert (e.g., "propulsion.main.coolantTemperature") */
+  path: string
+
   /** ID of the source (plugin, client) that raised the alert */
   sourceId: string
 
@@ -159,6 +162,9 @@ export interface IndicationState {
  * Request body for raising a new alert via REST API or plugin API.
  */
 export interface RaiseAlertRequest {
+  /** Signal K path identifying the alert (e.g., "propulsion.main.coolantTemperature") */
+  path: string
+
   /** Alert priority level */
   priority: AlertPriority
 

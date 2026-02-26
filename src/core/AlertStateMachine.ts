@@ -14,6 +14,8 @@ import type { Alert, AlertPriority, AlertState } from '../types.js'
  * Parameters for creating a new alert.
  */
 export interface CreateAlertParams {
+  /** Signal K path identifying the alert */
+  path: string
   /** ID of the source (plugin, client) that raised the alert */
   sourceId: string
   /** Alert priority level */
@@ -57,6 +59,7 @@ export function createAlert(params: CreateAlertParams): Alert {
 
   return {
     id: generateUUID(),
+    path: params.path,
     sourceId: params.sourceId,
     priority: params.priority,
     state: 'unacknowledged',

@@ -94,11 +94,11 @@ Each alert tracks its source. If a source stops sending updates, the alert is ma
 
 **Who creates alerts?** Alerts enter the system through three paths:
 
-- **Signal K notifications** — The plugin automatically intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins' notifications enter the system. The alert's `sourceId` is set to `notifications:<path>` where `<path>` is the full delta path including the `notifications.` prefix (e.g., `notifications:notifications.propulsion.main.coolantTemperature`).
-- **Plugin API** — Other Signal K plugins raise alerts programmatically by calling `app.alertManager.raiseAlert()`, providing their own `sourceId` to identify themselves.
-- **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller can provide a `sourceId`; if omitted, it defaults to `rest-api`.
+- **Signal K notifications** — The plugin automatically intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins' notifications enter the system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
+- **Plugin API** — Other Signal K plugins raise alerts programmatically by calling `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and optionally a `sourceId` to identify themselves.
+- **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `sourceId` is optional and defaults to `rest-api`.
 
-When the same source raises an alert with the same message as an existing active alert, the existing alert is updated (timestamp refreshed, priority escalated if higher) rather than creating a duplicate.
+Each alert is identified by its `path` (with optional `context` for multi-vessel deployments). When the same path is raised again, the existing alert is updated (message refreshed, priority escalated if higher) rather than creating a duplicate.
 
 **Who can acknowledge, silence, and clear?** Any authenticated user can perform any operation on any alert, regardless of who raised it. There is no per-alert ownership or role-based restriction. This is intentional: in a bridge context, any watchkeeper must be able to respond to any alert immediately. The operator's identity is recorded for audit purposes (in `acknowledgedBy` and in the history log) but is not used for access control.
 
@@ -157,11 +157,12 @@ curl -X POST http://localhost:3000/plugins/signalk-alert-manager/alerts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
+    "path": "propulsion.main.coolantTemperature",
     "priority": "alarm",
     "message": "Engine coolant temperature high",
     "category": "engine",
     "latching": false,
-    "data": { "path": "propulsion.main.coolantTemperature", "value": 95 }
+    "data": { "value": 95, "threshold": 90 }
   }'
 ```
 

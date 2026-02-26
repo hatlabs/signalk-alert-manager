@@ -103,7 +103,7 @@ export class AlertManager extends EventEmitter {
   private timerFns: TimerFunctions
 
   /**
-   * Index mapping sourceId+message to alertId for duplicate detection.
+   * Index mapping path(+context) to alertId for duplicate detection.
    */
   private alertIndex = new Map<string, string>()
 
@@ -166,7 +166,7 @@ export class AlertManager extends EventEmitter {
       this.alerts.set(alert.id, alert)
 
       // Rebuild alert index for duplicate detection
-      const indexKey = this.getIndexKey(alert.sourceId, alert.message)
+      const indexKey = this.getIndexKey(alert.path, alert.context)
       this.alertIndex.set(indexKey, alert.id)
 
       // Start escalation timer for unacknowledged warnings (accounting for elapsed time)
@@ -203,12 +203,12 @@ export class AlertManager extends EventEmitter {
   /**
    * Raise a new alert or update an existing one.
    *
-   * If an alert from the same source with the same message already exists,
+   * If an active alert with the same path (and context) already exists,
    * it is updated rather than creating a duplicate.
    */
   async raiseAlert(params: CreateAlertParams): Promise<Alert> {
-    // Check for existing alert from same source with same message
-    const indexKey = this.getIndexKey(params.sourceId, params.message)
+    // Check for existing alert with same path (+context)
+    const indexKey = this.getIndexKey(params.path, params.context)
     const existingId = this.alertIndex.get(indexKey)
 
     if (existingId) {
@@ -625,7 +625,9 @@ export class AlertManager extends EventEmitter {
 
     const updated: Alert = {
       ...existing,
+      sourceId: params.sourceId,
       priority: newPriority,
+      message: params.message,
       data: params.data,
       lastSourceUpdate: new Date().toISOString(),
       sourceOnline: true
@@ -654,7 +656,7 @@ export class AlertManager extends EventEmitter {
    */
   private async removeAlert(alertId: string, alert: Alert): Promise<void> {
     this.alerts.delete(alertId)
-    this.alertIndex.delete(this.getIndexKey(alert.sourceId, alert.message))
+    this.alertIndex.delete(this.getIndexKey(alert.path, alert.context))
 
     // Cancel any pending silence expiration timer
     this.cancelSilenceExpirationTimer(alertId)
@@ -664,11 +666,8 @@ export class AlertManager extends EventEmitter {
     }
   }
 
-  /**
-   * Get the index key for duplicate detection.
-   */
-  private getIndexKey(sourceId: string, message: string): string {
-    return `${sourceId}:${message}`
+  private getIndexKey(path: string, context?: string): string {
+    return context ? `${context}::${path}` : path
   }
 
   /**
