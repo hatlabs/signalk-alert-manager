@@ -7,7 +7,8 @@
 
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert, HistoryEntry, HistoryEventType } from '../../types.js'
-import { AlertService } from '../services/alert-service.js'
+import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
+import type { AlertService } from '../services/alert-service.js'
 import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
 import {
   PRIORITY_COLORS,
@@ -311,7 +312,7 @@ export class AlertDetail extends LitElement {
   declare error: string | null
   declare actionInFlight: boolean
 
-  private service = new AlertService()
+  private service!: AlertService
   private safetyTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
@@ -327,10 +328,10 @@ export class AlertDetail extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback()
+    this.service = acquireAlertService()
     this.service.addEventListener('change', this.onServiceChange)
-    this.service.connect().catch(() => {
-      // Connection failure; will retry
-    })
+    // Service connects on first acquire; change event will fire when ready
+    this.onServiceChange()
     this.fetchUiConfig()
   }
 
@@ -350,7 +351,7 @@ export class AlertDetail extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback()
     this.service.removeEventListener('change', this.onServiceChange)
-    this.service.disconnect()
+    releaseAlertService()
     this.clearSafetyTimer()
   }
 

@@ -278,3 +278,45 @@ function oldestFirst(a: string, b: string): number {
 function newestFirst(a: string, b: string): number {
   return new Date(b).getTime() - new Date(a).getTime()
 }
+
+// ---------------------------------------------------------------------------
+// Shared singleton with reference counting
+// ---------------------------------------------------------------------------
+
+let sharedInstance: AlertService | null = null
+let refCount = 0
+
+/**
+ * Acquire the shared AlertService singleton.
+ * First caller triggers connect(); subsequent callers reuse the connection.
+ */
+export function acquireAlertService(): AlertService {
+  if (!sharedInstance) {
+    sharedInstance = new AlertService()
+    sharedInstance.connect().catch(() => {
+      // Connection failure; the service will retry via WebSocket reconnect
+    })
+  }
+  refCount++
+  return sharedInstance
+}
+
+/**
+ * Release the shared AlertService singleton.
+ * When the last consumer releases, the connection is closed.
+ */
+export function releaseAlertService(): void {
+  if (refCount <= 0) return
+  if (--refCount <= 0) {
+    sharedInstance?.disconnect()
+    sharedInstance = null
+    refCount = 0
+  }
+}
+
+/** @internal Reset shared state. For testing only. */
+export function _resetAlertServiceSingleton(): void {
+  sharedInstance?.disconnect()
+  sharedInstance = null
+  refCount = 0
+}

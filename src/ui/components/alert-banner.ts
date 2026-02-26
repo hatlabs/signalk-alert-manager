@@ -7,7 +7,8 @@
 
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
-import { AlertService } from '../services/alert-service.js'
+import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
+import type { AlertService } from '../services/alert-service.js'
 import { ICON_ACKNOWLEDGE } from '../styles/icons.js'
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
 import { formatTime } from '../utils/format.js'
@@ -191,7 +192,7 @@ export class AlertBanner extends LitElement {
   declare expanded: boolean
   declare actionInFlight: boolean
 
-  private service = new AlertService()
+  private service!: AlertService
   private previousAlertId: string | null = null
   private safetyTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -204,16 +205,16 @@ export class AlertBanner extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback()
+    this.service = acquireAlertService()
     this.service.addEventListener('change', this.onServiceChange)
-    this.service.connect().catch(() => {
-      // Connection failure; banner stays empty until retry succeeds
-    })
+    // Service connects on first acquire; change event will fire when ready
+    this.updateTopAlert()
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback()
     this.service.removeEventListener('change', this.onServiceChange)
-    this.service.disconnect()
+    releaseAlertService()
     this.clearSafetyTimer()
   }
 

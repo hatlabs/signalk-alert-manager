@@ -66,6 +66,10 @@ const TONE_PATTERNS: Partial<Record<AlertPriority, TonePattern>> = {
 
 const DEFAULT_GAIN = 0.15
 
+// Persists across singleton lifecycles so a user gesture is not lost on
+// dispose + re-acquire.
+let userHasInteracted = false
+
 export class AudioService {
   private minAudiblePriority: MinAudiblePriority
   private audioCtx: AudioContext | null = null
@@ -74,7 +78,6 @@ export class AudioService {
   private currentPriority: AlertPriority | null = null
   private burstTimer: ReturnType<typeof setTimeout> | null = null
   private lastAlerts: Alert[] = []
-  private userHasInteracted = false
   private gestureHandler: (() => void) | null = null
 
   constructor(options?: AudioServiceOptions) {
@@ -120,9 +123,10 @@ export class AudioService {
    */
   private listenForUserGesture(): void {
     if (typeof document === 'undefined') return
+    if (userHasInteracted) return
 
     this.gestureHandler = () => {
-      this.userHasInteracted = true
+      userHasInteracted = true
       this.removeGestureListener()
       // Re-evaluate: if alerts were waiting for audio, start playing now
       this.evaluate(this.lastAlerts)
@@ -163,7 +167,7 @@ export class AudioService {
     }
 
     // Can't play until user has interacted with the page
-    if (!this.userHasInteracted) {
+    if (!userHasInteracted) {
       return
     }
 
@@ -298,4 +302,38 @@ export class AudioService {
 
     this.currentPriority = null
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared singleton with reference counting
+// ---------------------------------------------------------------------------
+
+let sharedInstance: AudioService | null = null
+let refCount = 0
+
+/** Acquire the shared AudioService singleton. */
+export function acquireAudioService(): AudioService {
+  if (!sharedInstance) {
+    sharedInstance = new AudioService()
+  }
+  refCount++
+  return sharedInstance
+}
+
+/** Release the shared AudioService singleton. */
+export function releaseAudioService(): void {
+  if (refCount <= 0) return
+  if (--refCount <= 0) {
+    sharedInstance?.dispose()
+    sharedInstance = null
+    refCount = 0
+  }
+}
+
+/** @internal Reset shared state. For testing only. */
+export function _resetAudioServiceSingleton(): void {
+  sharedInstance?.dispose()
+  sharedInstance = null
+  refCount = 0
+  userHasInteracted = false
 }
