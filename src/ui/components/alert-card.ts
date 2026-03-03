@@ -35,24 +35,30 @@ export class AlertCard extends LitElement {
       overflow: hidden;
     }
 
-    .card.flashing {
-      animation: flash 1s ease-in-out infinite;
-    }
-
-    @keyframes flash {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.6;
-      }
-    }
-
     .priority-bar {
       width: 6px;
       flex-shrink: 0;
       background: var(--priority-color, #666);
+    }
+
+    .card.flashing .priority-bar {
+      animation: bar-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes bar-pulse {
+      0%,
+      100% {
+        box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+      }
+      50% {
+        box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card.flashing .priority-bar {
+        animation: none;
+      }
     }
 
     .content {
