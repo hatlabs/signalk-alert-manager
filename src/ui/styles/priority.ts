@@ -6,6 +6,7 @@
 
 import type { AlertPriority, AlertState } from '../../types.js'
 
+/** Canonical light-mode priority colors. Kept as reference; components should use priorityVars() for dark mode support. */
 export const PRIORITY_COLORS: Record<AlertPriority, { color: string; background: string }> = {
   emergency: { color: '#D32F2F', background: '#FFEBEE' },
   alarm: { color: '#F57C00', background: '#FFF3E0' },
@@ -39,6 +40,18 @@ export type MinAudiblePriority = 'off' | AlertPriority
 
 /** Valid values for the minAudiblePriority config option. */
 export const VALID_AUDIBLE_PRIORITIES = new Set<string>(['off', 'emergency', 'alarm', 'warning'])
+
+/**
+ * Return CSS variable references for a given priority.
+ * Components using themeStyles should prefer this over PRIORITY_COLORS
+ * so that dark mode overrides take effect automatically.
+ */
+export function priorityVars(priority: AlertPriority): { color: string; background: string } {
+  return {
+    color: `var(--priority-${priority}-color)`,
+    background: `var(--priority-${priority}-bg)`
+  }
+}
 
 /** Whether an alert at the given priority would produce audio. */
 export function isAudible(

@@ -6,26 +6,32 @@
  */
 
 import { LitElement, html, css, nothing } from 'lit'
+import { themeStyles } from '../styles/theme.js'
 
 export class AlertApp extends LitElement {
   static properties = {
     selectedAlertId: { state: true }
   }
 
-  static styles = css`
-    :host {
-      display: block;
-      font-family: system-ui, sans-serif;
-      padding: 1rem;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    h1 {
-      margin: 0 0 1rem 0;
-      font-size: 1.25rem;
-      color: #333;
-    }
-  `
+  static styles = [
+    themeStyles,
+    css`
+      :host {
+        display: block;
+        font-family: system-ui, sans-serif;
+        padding: 1rem;
+        max-width: 800px;
+        margin: 0 auto;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
+      h1 {
+        margin: 0 0 1rem 0;
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+      }
+    `
+  ]
 
   declare selectedAlertId: string | null
 

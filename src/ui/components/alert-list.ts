@@ -9,6 +9,7 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
 import type { AlertService } from '../services/alert-service.js'
+import { themeStyles } from '../styles/theme.js'
 import { acquireAudioService, releaseAudioService } from '../services/audio-service.js'
 import type { AudioService } from '../services/audio-service.js'
 import { VALID_AUDIBLE_PRIORITIES } from '../styles/priority.js'
@@ -23,102 +24,105 @@ export class AlertList extends LitElement {
     simulationEnabled: { state: true }
   }
 
-  static styles = css`
-    :host {
-      display: block;
-    }
+  static styles = [
+    themeStyles,
+    css`
+      :host {
+        display: block;
+      }
 
-    .toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #e0e0e0;
-    }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-primary);
+      }
 
-    .alert-count {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #444;
-    }
+      .alert-count {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
 
-    button[data-action='silence-all'] {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem 0.75rem;
-      border: 1px solid #1976d2;
-      border-radius: 4px;
-      background: #fff;
-      color: #1565c0;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      touch-action: manipulation;
-      white-space: nowrap;
-    }
+      button[data-action='silence-all'] {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--btn-silence-all-border);
+        border-radius: 4px;
+        background: var(--btn-silence-all-bg);
+        color: var(--btn-silence-all-text);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        touch-action: manipulation;
+        white-space: nowrap;
+      }
 
-    button[data-action='silence-all']:hover:not(:disabled) {
-      background: #e3f2fd;
-    }
+      button[data-action='silence-all']:hover:not(:disabled) {
+        background: var(--btn-silence-all-hover);
+      }
 
-    button[data-action='silence-all']:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+      button[data-action='silence-all']:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    .toolbar-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
+      .toolbar-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
 
-    button[data-action='simulate'] {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem 0.75rem;
-      border: 1px solid #e65100;
-      border-radius: 4px;
-      background: #fff;
-      color: #e65100;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      touch-action: manipulation;
-      white-space: nowrap;
-    }
+      button[data-action='simulate'] {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--btn-sim-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
+        color: var(--btn-sim-text);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        touch-action: manipulation;
+        white-space: nowrap;
+      }
 
-    button[data-action='simulate']:hover {
-      background: #fff3e0;
-    }
+      button[data-action='simulate']:hover {
+        background: var(--btn-sim-hover);
+      }
 
-    button[data-action='simulate'].sim-active {
-      background: #e65100;
-      color: #fff;
-    }
+      button[data-action='simulate'].sim-active {
+        background: var(--btn-sim-active-bg);
+        color: var(--btn-sim-active-text);
+      }
 
-    button[data-action='simulate'].sim-active:hover {
-      background: #bf360c;
-    }
+      button[data-action='simulate'].sim-active:hover {
+        background: var(--btn-sim-active-hover);
+      }
 
-    .empty {
-      text-align: center;
-      padding: 2rem;
-      color: #888;
-      font-size: 0.9rem;
-    }
+      .empty {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+      }
 
-    .list {
-      display: flex;
-      flex-direction: column;
-    }
+      .list {
+        display: flex;
+        flex-direction: column;
+      }
 
-    .group-separator {
-      height: 0;
-      border: none;
-      border-top: 1px solid #ccc;
-      margin: 0.5rem 0;
-    }
-  `
+      .group-separator {
+        height: 0;
+        border: none;
+        border-top: 1px solid var(--border-secondary);
+        margin: 0.5rem 0;
+      }
+    `
+  ]
 
   declare alerts: Alert[]
   declare minAudiblePriority: MinAudiblePriority | null

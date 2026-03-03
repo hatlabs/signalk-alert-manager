@@ -11,13 +11,14 @@ import { acquireAlertService, releaseAlertService } from '../services/alert-serv
 import type { AlertService } from '../services/alert-service.js'
 import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
 import {
-  PRIORITY_COLORS,
+  priorityVars,
   PRIORITY_LABELS,
   STATE_LABELS,
   VALID_AUDIBLE_PRIORITIES,
   isAudible
 } from '../styles/priority.js'
 import type { MinAudiblePriority } from '../styles/priority.js'
+import { themeStyles } from '../styles/theme.js'
 import { formatTime } from '../utils/format.js'
 
 const API_BASE = '/plugins/signalk-alert-manager'
@@ -45,264 +46,267 @@ export class AlertDetail extends LitElement {
     actionInFlight: { state: true }
   }
 
-  static styles = css`
-    :host {
-      display: block;
-    }
+  static styles = [
+    themeStyles,
+    css`
+      :host {
+        display: block;
+      }
 
-    .detail-card {
-      border: 2px solid var(--priority-color, #666);
-      border-radius: 6px;
-      background: var(--priority-bg, #fff);
-      overflow: hidden;
-    }
+      .detail-card {
+        border: 2px solid var(--priority-color, #666);
+        border-radius: 6px;
+        background: var(--priority-bg, #888);
+        overflow: hidden;
+      }
 
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.75rem;
-      border-bottom: 1px solid #e0e0e0;
-    }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border-primary);
+      }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
 
-    .priority {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--priority-color, #666);
-    }
+      .priority {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--priority-color, #666);
+      }
 
-    .state {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #e0e0e0;
-      color: #333;
-    }
+      .state {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-state-bg);
+        color: var(--badge-state-text);
+      }
 
-    .category {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #f0f0f0;
-      color: #666;
-    }
+      .category {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-category-bg);
+        color: var(--badge-category-text);
+      }
 
-    .stale {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #fff3cd;
-      color: #856404;
-    }
+      .stale {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-stale-bg);
+        color: var(--badge-stale-text);
+      }
 
-    .silenced {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #e8eaf6;
-      color: #3949ab;
-    }
+      .silenced {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-silenced-bg);
+        color: var(--badge-silenced-text);
+      }
 
-    button[data-action='close'] {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem 0.75rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-      font-size: 0.8rem;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
+      button[data-action='close'] {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--btn-close-border);
+        border-radius: 4px;
+        background: var(--btn-close-bg);
+        font-size: 0.8rem;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
 
-    .body {
-      padding: 0.75rem;
-    }
+      .body {
+        padding: 0.75rem;
+      }
 
-    .message {
-      font-size: 1rem;
-      color: #222;
-      margin-bottom: 0.75rem;
-    }
+      .message {
+        font-size: 1rem;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+      }
 
-    .info-grid {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.25rem 0.75rem;
-      font-size: 0.85rem;
-      margin-bottom: 1rem;
-    }
+      .info-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.25rem 0.75rem;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+      }
 
-    .info-label {
-      color: #666;
-      font-weight: 600;
-    }
+      .info-label {
+        color: var(--text-muted);
+        font-weight: 600;
+      }
 
-    .info-value {
-      color: #333;
-    }
+      .info-value {
+        color: var(--text-secondary);
+      }
 
-    .source {
-      color: #333;
-    }
+      .source {
+        color: var(--text-secondary);
+      }
 
-    .data {
-      margin-bottom: 1rem;
-    }
+      .data {
+        margin-bottom: 1rem;
+      }
 
-    .data-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #666;
-      margin-bottom: 0.25rem;
-    }
+      .data-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.25rem;
+      }
 
-    .data pre {
-      background: #f5f5f5;
-      padding: 0.5rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      overflow-x: auto;
-      max-height: 200px;
-      overflow-y: auto;
-      margin: 0;
-    }
+      .data pre {
+        background: var(--data-pre-bg);
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        overflow-x: auto;
+        max-height: 200px;
+        overflow-y: auto;
+        margin: 0;
+      }
 
-    .actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
+      .actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
 
-    .actions button {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      touch-action: manipulation;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+      .actions button {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem;
+        border: 1px solid var(--btn-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
+        cursor: pointer;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-    .actions button svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
+      .actions button svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
 
-    .actions button:hover:not(:disabled) {
-      background: #f5f5f5;
-    }
+      .actions button:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
 
-    .actions button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+      .actions button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    .actions button[data-action='acknowledge'] {
-      border-color: #4caf50;
-      color: #2e7d32;
-    }
+      .actions button[data-action='acknowledge'] {
+        border-color: var(--btn-ack-border);
+        color: var(--btn-ack-text);
+      }
 
-    .actions button[data-action='silence'] {
-      border-color: #1976d2;
-      color: #1565c0;
-    }
+      .actions button[data-action='silence'] {
+        border-color: var(--btn-silence-border);
+        color: var(--btn-silence-text);
+      }
 
-    .timeline-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #444;
-      margin-bottom: 0.5rem;
-    }
+      .timeline-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+      }
 
-    .timeline {
-      border-left: 2px solid #e0e0e0;
-      padding-left: 1rem;
-    }
+      .timeline {
+        border-left: 2px solid var(--timeline-border);
+        padding-left: 1rem;
+      }
 
-    .timeline-entry {
-      position: relative;
-      margin-bottom: 0.75rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #f0f0f0;
-    }
+      .timeline-entry {
+        position: relative;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--timeline-entry-border);
+      }
 
-    .timeline-entry:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-      padding-bottom: 0;
-    }
+      .timeline-entry:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
 
-    .timeline-entry::before {
-      content: '';
-      position: absolute;
-      left: -1.35rem;
-      top: 0.35rem;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #999;
-    }
+      .timeline-entry::before {
+        content: '';
+        position: absolute;
+        left: -1.35rem;
+        top: 0.35rem;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--timeline-dot);
+      }
 
-    .event-type {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #444;
-    }
+      .event-type {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
 
-    .event-time {
-      font-size: 0.75rem;
-      color: #888;
-      margin-left: 0.5rem;
-    }
+      .event-time {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        margin-left: 0.5rem;
+      }
 
-    .event-details {
-      font-size: 0.8rem;
-      color: #666;
-      margin-top: 0.125rem;
-    }
+      .event-details {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.125rem;
+      }
 
-    .timeline-empty {
-      font-size: 0.85rem;
-      color: #888;
-      font-style: italic;
-    }
+      .timeline-empty {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        font-style: italic;
+      }
 
-    .timeline-error {
-      font-size: 0.85rem;
-      color: #d32f2f;
-      font-style: italic;
-    }
+      .timeline-error {
+        font-size: 0.85rem;
+        color: var(--error-text);
+        font-style: italic;
+      }
 
-    .error {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      color: #d32f2f;
-    }
+      .error {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        color: var(--error-text);
+      }
 
-    .loading {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      color: #888;
-    }
-  `
+      .loading {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        color: var(--text-dim);
+      }
+    `
+  ]
 
   declare alertId: string
   declare minAudiblePriority: MinAudiblePriority | null
@@ -448,7 +452,7 @@ export class AlertDetail extends LitElement {
       return html`<div class="loading">${this.renderBackButton()} Loading...</div>`
     }
 
-    const colors = PRIORITY_COLORS[this.alert.priority]
+    const colors = priorityVars(this.alert.priority)
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
     const showAck = isUnacked

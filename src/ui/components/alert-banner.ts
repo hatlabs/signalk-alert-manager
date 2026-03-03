@@ -10,7 +10,8 @@ import type { Alert } from '../../types.js'
 import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
 import type { AlertService } from '../services/alert-service.js'
 import { ICON_ACKNOWLEDGE } from '../styles/icons.js'
-import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { priorityVars, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { themeStyles } from '../styles/theme.js'
 import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling button if no WebSocket update arrives. */
@@ -23,170 +24,173 @@ export class AlertBanner extends LitElement {
     actionInFlight: { state: true }
   }
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-
-    .banner {
-      display: flex;
-      align-items: stretch;
-      border: 2px solid var(--priority-color, #666);
-      border-radius: 6px;
-      background: var(--priority-bg, #fff);
-      margin-bottom: 1rem;
-      overflow: hidden;
-    }
-
-    .priority-bar {
-      width: 6px;
-      flex-shrink: 0;
-      background: var(--priority-color, #666);
-    }
-
-    .banner.flashing .priority-bar {
-      animation: bar-pulse 1s ease-in-out infinite;
-    }
-
-    @keyframes bar-pulse {
-      0%,
-      100% {
-        box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+  static styles = [
+    themeStyles,
+    css`
+      :host {
+        display: block;
       }
-      50% {
-        box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
-      }
-    }
 
-    @media (prefers-reduced-motion: reduce) {
+      .banner {
+        display: flex;
+        align-items: stretch;
+        border: 2px solid var(--priority-color, #666);
+        border-radius: 6px;
+        background: var(--priority-bg, #888);
+        margin-bottom: 1rem;
+        overflow: hidden;
+      }
+
+      .priority-bar {
+        width: 6px;
+        flex-shrink: 0;
+        background: var(--priority-color, #666);
+      }
+
       .banner.flashing .priority-bar {
-        animation: none;
+        animation: bar-pulse 1s ease-in-out infinite;
       }
-    }
 
-    .body {
-      flex: 1;
-      min-width: 0;
-    }
+      @keyframes bar-pulse {
+        0%,
+        100% {
+          box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+        }
+        50% {
+          box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
+        }
+      }
 
-    .main-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
-    }
+      @media (prefers-reduced-motion: reduce) {
+        .banner.flashing .priority-bar {
+          animation: none;
+        }
+      }
 
-    .priority {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--priority-color, #666);
-      flex-shrink: 0;
-    }
+      .body {
+        flex: 1;
+        min-width: 0;
+      }
 
-    .message {
-      font-size: 0.9rem;
-      color: #222;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+      .main-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+      }
 
-    .toggle-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 0.8rem;
-      color: #666;
-      padding: 0.25rem;
-      flex-shrink: 0;
-      min-height: 44px;
-      min-width: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      touch-action: manipulation;
-    }
+      .priority {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--priority-color, #666);
+        flex-shrink: 0;
+      }
 
-    .toggle-btn:hover {
-      color: #333;
-    }
+      .message {
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
-    .actions {
-      display: flex;
-      align-items: center;
-      padding: 0 0.75rem;
-    }
+      .toggle-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        padding: 0.25rem;
+        flex-shrink: 0;
+        min-height: 44px;
+        min-width: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+      }
 
-    .actions button {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem;
-      border: 1px solid #4caf50;
-      border-radius: 4px;
-      background: #fff;
-      color: #2e7d32;
-      cursor: pointer;
-      touch-action: manipulation;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+      .toggle-btn:hover {
+        color: var(--text-secondary);
+      }
 
-    .actions button svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
+      .actions {
+        display: flex;
+        align-items: center;
+        padding: 0 0.75rem;
+      }
 
-    .actions button:hover:not(:disabled) {
-      background: #f5f5f5;
-    }
+      .actions button {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem;
+        border: 1px solid var(--btn-ack-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
+        color: var(--btn-ack-text);
+        cursor: pointer;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-    .actions button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+      .actions button svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
 
-    .details {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0 0.75rem 0.5rem;
-      flex-wrap: wrap;
-      align-items: center;
-    }
+      .actions button:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
 
-    .state {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #e0e0e0;
-      color: #333;
-    }
+      .actions button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    .category {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #f0f0f0;
-      color: #666;
-    }
+      .details {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0 0.75rem 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
 
-    .stale {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #fff3cd;
-      color: #856404;
-    }
+      .state {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-state-bg);
+        color: var(--badge-state-text);
+      }
 
-    .time {
-      font-size: 0.75rem;
-      color: #888;
-    }
-  `
+      .category {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-category-bg);
+        color: var(--badge-category-text);
+      }
+
+      .stale {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-stale-bg);
+        color: var(--badge-stale-text);
+      }
+
+      .time {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+      }
+    `
+  ]
 
   declare topAlert: Alert | null
   declare expanded: boolean
@@ -267,7 +271,7 @@ export class AlertBanner extends LitElement {
     }
 
     const alert = this.topAlert
-    const colors = PRIORITY_COLORS[alert.priority]
+    const colors = priorityVars(alert.priority)
     const isUnacked = alert.state === 'unacknowledged' || alert.state === 'rtn-unacknowledged'
     const showAck = isUnacked
 
