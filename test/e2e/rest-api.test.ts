@@ -98,19 +98,6 @@ describe('REST API Endpoints', () => {
     })
   })
 
-  describe('GET /alerts/indication', () => {
-    it('should return 200 with indication state', async () => {
-      const res = await client.getIndication()
-      expect(res.status).toBe(200)
-      const indication = await res.json()
-      expect(indication).toHaveProperty('audible')
-      expect(indication).toHaveProperty('priority')
-      expect(indication).toHaveProperty('flash')
-      expect(indication).toHaveProperty('silenced')
-      expect(indication).toHaveProperty('unacknowledgedCount')
-    })
-  })
-
   describe('GET /alerts/history', () => {
     it('should return 200 with history entries', async () => {
       const res = await client.getHistory()

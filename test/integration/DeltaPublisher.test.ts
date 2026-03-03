@@ -68,17 +68,15 @@ describe('DeltaPublisher', () => {
     expect(delta.updates).toHaveLength(1)
 
     const values = getValues(capturedDeltas)
-    expect(values).toHaveLength(2)
+    expect(values).toHaveLength(1)
 
-    const alertValue = findValue(values, 'alerts.active.')
+    const alertValue = findValue(values, 'alerts.engine.overheating')
+    expect(alertValue.path).toBe('alerts.engine.overheating')
     expect(alertValue.value).toBeDefined()
     expect((alertValue.value as { priority: string }).priority).toBe('alarm')
-
-    const indicationValue = findValue(values, 'alerts.indication')
-    expect(indicationValue.value).toBeDefined()
   })
 
-  it('should publish null for cleared alert', async () => {
+  it('should publish alert with state normal on clear', async () => {
     const alert = await alertManager.raiseAlert({
       path: 'electrical.battery.low',
       $source: 'test',
@@ -91,8 +89,10 @@ describe('DeltaPublisher', () => {
     await alertManager.clearCondition(alert.id)
 
     expect(capturedDeltas).toHaveLength(1)
-    const alertValue = findValue(getValues(capturedDeltas), 'alerts.active.')
-    expect(alertValue.value).toBeNull()
+    const alertValue = findValue(getValues(capturedDeltas), 'alerts.electrical.battery.low')
+    expect(alertValue.value).toBeDefined()
+    expect((alertValue.value as { state: string }).state).toBe('normal')
+    expect((alertValue.value as { priority: string }).priority).toBe('caution')
   })
 
   it('should publish updated state on acknowledge', async () => {
@@ -107,7 +107,7 @@ describe('DeltaPublisher', () => {
     await alertManager.acknowledgeAlert(alert.id, 'operator')
 
     expect(capturedDeltas).toHaveLength(1)
-    const alertValue = findValue(getValues(capturedDeltas), 'alerts.active.')
+    const alertValue = findValue(getValues(capturedDeltas), 'alerts.engine.overheating.ack')
     expect((alertValue.value as { state: string }).state).toBe('acknowledged')
   })
 
@@ -123,7 +123,7 @@ describe('DeltaPublisher', () => {
     await alertManager.silenceAlert(alert.id)
 
     expect(capturedDeltas).toHaveLength(1)
-    const alertValue = findValue(getValues(capturedDeltas), 'alerts.active.')
+    const alertValue = findValue(getValues(capturedDeltas), 'alerts.engine.overheating.silence')
     expect((alertValue.value as { silenced: boolean }).silenced).toBe(true)
   })
 
@@ -140,7 +140,7 @@ describe('DeltaPublisher', () => {
     fakeTimers.advanceTime(300_000)
 
     expect(capturedDeltas).toHaveLength(1)
-    const alertValue = findValue(getValues(capturedDeltas), 'alerts.active.')
+    const alertValue = findValue(getValues(capturedDeltas), 'alerts.engine.temperature.rising')
     expect((alertValue.value as { priority: string }).priority).toBe('alarm')
   })
 
@@ -234,22 +234,33 @@ describe('DeltaPublisher', () => {
     brokenPublisher.stop()
   })
 
-  it('should include indication state on every event', async () => {
+  it('should handle deep multi-segment paths', async () => {
     await alertManager.raiseAlert({
-      path: 'test.indication',
+      path: 'propulsion.main.coolantTemperature',
+      $source: 'test',
+      priority: 'alarm',
+      message: 'Coolant overheating'
+    })
+
+    expect(capturedDeltas).toHaveLength(1)
+    const alertValue = findValue(
+      getValues(capturedDeltas),
+      'alerts.propulsion.main.coolantTemperature'
+    )
+    expect(alertValue.path).toBe('alerts.propulsion.main.coolantTemperature')
+    expect((alertValue.value as { priority: string }).priority).toBe('alarm')
+  })
+
+  it('should publish single value per delta (no indication)', async () => {
+    await alertManager.raiseAlert({
+      path: 'test.single.value',
       $source: 'test',
       priority: 'alarm',
       message: 'Test'
     })
 
-    const indicationValue = findValue(getValues(capturedDeltas), 'alerts.indication')
-    const indication = indicationValue.value as {
-      audible: boolean
-      priority: string | null
-      unacknowledgedCount: number
-    }
-    expect(indication.audible).toBe(true)
-    expect(indication.priority).toBe('alarm')
-    expect(indication.unacknowledgedCount).toBe(1)
+    const values = getValues(capturedDeltas)
+    expect(values).toHaveLength(1)
+    expect(String(values[0].path)).toBe('alerts.test.single.value')
   })
 })

@@ -152,7 +152,7 @@ describe('AlertService', () => {
       expect(wsInstances[0].url).toContain('/signalk/v1/stream')
     })
 
-    it('subscribes to alerts.active.* on WebSocket open', async () => {
+    it('subscribes to alerts.* on WebSocket open', async () => {
       await service.connect()
 
       const ws = wsInstances[0]
@@ -163,9 +163,7 @@ describe('AlertService', () => {
       expect(ws.sent).toHaveLength(1)
       const subscription = JSON.parse(ws.sent[0])
       expect(subscription.context).toBe('vessels.self')
-      expect(subscription.subscribe).toContainEqual(
-        expect.objectContaining({ path: 'alerts.active.*' })
-      )
+      expect(subscription.subscribe).toContainEqual(expect.objectContaining({ path: 'alerts.*' }))
     })
 
     it('handles fetch failure gracefully', async () => {
@@ -209,7 +207,11 @@ describe('AlertService', () => {
     })
 
     it('adds new alert from delta', () => {
-      const newAlert = makeAlert({ id: 'alert-2', message: 'New alert' })
+      const newAlert = makeAlert({
+        id: 'alert-2',
+        path: 'engine.overheating',
+        message: 'New alert'
+      })
 
       const onChange = vi.fn()
       service.addEventListener('change', onChange)
@@ -220,7 +222,7 @@ describe('AlertService', () => {
           {
             source: { label: 'alert-manager' },
             timestamp: new Date().toISOString(),
-            values: [{ path: 'alerts.active.alert-2', value: newAlert }]
+            values: [{ path: 'alerts.engine.overheating', value: newAlert }]
           }
         ]
       })
@@ -238,7 +240,7 @@ describe('AlertService', () => {
           {
             source: { label: 'alert-manager' },
             timestamp: new Date().toISOString(),
-            values: [{ path: 'alerts.active.alert-1', value: updated }]
+            values: [{ path: 'alerts.electrical.battery.low', value: updated }]
           }
         ]
       })
@@ -248,14 +250,20 @@ describe('AlertService', () => {
       expect(alerts[0].state).toBe('acknowledged')
     })
 
-    it('removes alert when delta value is null (cleared)', () => {
+    it('removes alert when delta has state normal (cleared)', () => {
+      const cleared = {
+        ...existingAlert,
+        state: 'normal' as AlertState,
+        condition: false
+      }
+
       wsInstances[0].simulateMessage({
         context: 'vessels.self',
         updates: [
           {
             source: { label: 'alert-manager' },
             timestamp: new Date().toISOString(),
-            values: [{ path: 'alerts.active.alert-1', value: null }]
+            values: [{ path: 'alerts.electrical.battery.low', value: cleared }]
           }
         ]
       })

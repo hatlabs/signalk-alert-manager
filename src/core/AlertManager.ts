@@ -14,8 +14,7 @@ import type {
   AlertPriority,
   HistoryEventType,
   IAlertStore,
-  IHistoryStore,
-  IndicationState
+  IHistoryStore
 } from '../types.js'
 import {
   AlertStateMachine,
@@ -69,7 +68,7 @@ export type AlertEventType =
 export interface AlertEvent {
   /** Type of event that occurred */
   type: AlertEventType
-  /** The alert after the event (null if cleared) */
+  /** The alert at the time of the event */
   alert: Alert
   /** The alert state before the event */
   previousState?: string
@@ -457,44 +456,6 @@ export class AlertManager extends EventEmitter {
    */
   getUnacknowledgedCount(): number {
     return this.getAlerts({ state: ['unacknowledged', 'rtn-unacknowledged'] }).length
-  }
-
-  /**
-   * Get current indication state for hardware integration.
-   */
-  getIndicationState(): IndicationState {
-    const unacknowledged = this.getAlerts({ state: ['unacknowledged', 'rtn-unacknowledged'] })
-
-    if (unacknowledged.length === 0) {
-      return {
-        audible: false,
-        priority: null,
-        flash: false,
-        silenced: false,
-        unacknowledgedCount: 0
-      }
-    }
-
-    // Find highest priority
-    let highestPriority: AlertPriority = 'caution'
-    let allSilenced = true
-
-    for (const alert of unacknowledged) {
-      if (PRIORITY_ORDER[alert.priority] > PRIORITY_ORDER[highestPriority]) {
-        highestPriority = alert.priority
-      }
-      if (!alert.silenced) {
-        allSilenced = false
-      }
-    }
-
-    return {
-      audible: !allSilenced,
-      priority: highestPriority,
-      flash: true,
-      silenced: allSilenced,
-      unacknowledgedCount: unacknowledged.length
-    }
   }
 
   /**

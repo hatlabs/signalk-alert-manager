@@ -24,7 +24,6 @@ export type {
   AlertDefinition,
   AlertManagerAPI,
   AlertTransitionResult,
-  IndicationState,
   RaiseAlertRequest,
   AlertFilter,
   HistoryQuery,
@@ -280,7 +279,6 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
           silenceAll: () => mgr.silenceAll(),
           getAlerts: (filter) => mgr.getAlerts(filter),
           getAlert: (id) => mgr.getAlert(id),
-          getIndicationState: () => mgr.getIndicationState(),
           registerAlertType: (definition) => {
             alertTypes.set(definition.alertType, definition)
           }

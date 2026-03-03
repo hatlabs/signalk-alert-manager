@@ -682,35 +682,6 @@ describe('REST API Routes', () => {
   })
 
   // =========================================================================
-  // GET /alerts/indication
-  // =========================================================================
-
-  describe('GET /alerts/indication', () => {
-    it('should return indication state with no alerts', async () => {
-      const res = await fetch(`${ctx.baseUrl}/alerts/indication`)
-      expect(res.status).toBe(200)
-      const body = (await res.json()) as Record<string, unknown>
-      expect(body.audible).toBe(false)
-      expect(body.priority).toBeNull()
-      expect(body.flash).toBe(false)
-      expect(body.silenced).toBe(false)
-      expect(body.unacknowledgedCount).toBe(0)
-    })
-
-    it('should reflect unacknowledged alert state', async () => {
-      await raiseTestAlert(ctx, { priority: 'alarm' })
-
-      const res = await fetch(`${ctx.baseUrl}/alerts/indication`)
-      expect(res.status).toBe(200)
-      const body = (await res.json()) as Record<string, unknown>
-      expect(body.audible).toBe(true)
-      expect(body.priority).toBe('alarm')
-      expect(body.flash).toBe(true)
-      expect(body.unacknowledgedCount).toBe(1)
-    })
-  })
-
-  // =========================================================================
   // GET /alerts/history
   // =========================================================================
 
@@ -850,11 +821,6 @@ describe('REST API Routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'test.503', priority: 'alarm', message: 'test' })
       })
-      expect(res.status).toBe(503)
-    })
-
-    it('GET /alerts/indication should return 503', async () => {
-      const res = await fetch(`${uninitBaseUrl}/alerts/indication`)
       expect(res.status).toBe(503)
     })
 

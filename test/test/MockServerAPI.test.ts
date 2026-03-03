@@ -354,7 +354,7 @@ describe('MockServerAPI', () => {
           context: 'vessels.self',
           updates: [
             {
-              values: [{ path: 'alerts.active.123', value: { id: '123', priority: 'alarm' } }]
+              values: [{ path: 'alerts.test.path', value: { id: '123', priority: 'alarm' } }]
             }
           ]
         })

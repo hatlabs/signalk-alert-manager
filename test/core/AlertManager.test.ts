@@ -996,56 +996,6 @@ describe('AlertManager', () => {
     })
   })
 
-  describe('getIndicationState', () => {
-    it('should return correct indication state', async () => {
-      // No alerts
-      let indication = manager.getIndicationState()
-      expect(indication.audible).toBe(false)
-      expect(indication.priority).toBeNull()
-      expect(indication.flash).toBe(false)
-      expect(indication.unacknowledgedCount).toBe(0)
-
-      // Add unacknowledged alarm
-      const alert = await manager.raiseAlert({
-        path: 'test.alert',
-        $source: 'test-source',
-        priority: 'alarm',
-        message: 'Test alert'
-      })
-
-      indication = manager.getIndicationState()
-      expect(indication.audible).toBe(true)
-      expect(indication.priority).toBe('alarm')
-      expect(indication.flash).toBe(true)
-      expect(indication.unacknowledgedCount).toBe(1)
-
-      // Silence the alert
-      await manager.silenceAlert(alert.id)
-
-      indication = manager.getIndicationState()
-      expect(indication.silenced).toBe(true)
-      expect(indication.audible).toBe(false)
-    })
-
-    it('should return highest priority among unacknowledged', async () => {
-      await manager.raiseAlert({
-        path: 'test.alert.1',
-        $source: 'source-1',
-        priority: 'warning',
-        message: 'Warning'
-      })
-      await manager.raiseAlert({
-        path: 'test.alert.2',
-        $source: 'source-2',
-        priority: 'alarm',
-        message: 'Alarm'
-      })
-
-      const indication = manager.getIndicationState()
-      expect(indication.priority).toBe('alarm')
-    })
-  })
-
   describe('unsilenceAlert', () => {
     it('should remove silenced flag from alert', async () => {
       const alert = await manager.raiseAlert({

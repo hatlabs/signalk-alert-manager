@@ -4,7 +4,6 @@ import type {
   AlertState,
   Alert,
   AlertDefinition,
-  IndicationState,
   RaiseAlertRequest,
   AlertFilter,
   HistoryQuery,
@@ -23,8 +22,13 @@ describe('TypeScript Types', () => {
 
   describe('AlertState', () => {
     it('should accept valid state values', () => {
-      const states: AlertState[] = ['unacknowledged', 'acknowledged', 'rtn-unacknowledged']
-      expect(states).toHaveLength(3)
+      const states: AlertState[] = [
+        'normal',
+        'unacknowledged',
+        'acknowledged',
+        'rtn-unacknowledged'
+      ]
+      expect(states).toHaveLength(4)
     })
   })
 
@@ -101,30 +105,6 @@ describe('TypeScript Types', () => {
         category: 'navigation'
       }
       expect(definition.escalation?.toPriority).toBe('alarm')
-    })
-  })
-
-  describe('IndicationState', () => {
-    it('should accept valid indication state', () => {
-      const indication: IndicationState = {
-        audible: true,
-        priority: 'alarm',
-        flash: true,
-        silenced: false,
-        unacknowledgedCount: 3
-      }
-      expect(indication.unacknowledgedCount).toBe(3)
-    })
-
-    it('should accept null priority when no alerts', () => {
-      const indication: IndicationState = {
-        audible: false,
-        priority: null,
-        flash: false,
-        silenced: false,
-        unacknowledgedCount: 0
-      }
-      expect(indication.priority).toBeNull()
     })
   })
 
