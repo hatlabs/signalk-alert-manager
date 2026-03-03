@@ -213,7 +213,7 @@ describe('AlertDetail', () => {
       const card = shadowQuery(el, '.detail-card')
       expect(card).not.toBeNull()
       const style = card?.getAttribute('style')
-      expect(style).toContain('#D32F2F')
+      expect(style).toContain('var(--priority-emergency-color)')
     })
   })
 

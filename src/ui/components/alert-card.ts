@@ -8,8 +8,9 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
-import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS, isAudible } from '../styles/priority.js'
+import { priorityVars, PRIORITY_LABELS, STATE_LABELS, isAudible } from '../styles/priority.js'
 import type { MinAudiblePriority } from '../styles/priority.js'
+import { themeStyles } from '../styles/theme.js'
 import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling buttons if no WebSocket update arrives. */
@@ -22,175 +23,178 @@ export class AlertCard extends LitElement {
     actionInFlight: { state: true }
   }
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-
-    .card {
-      display: flex;
-      align-items: stretch;
-      border: 2px solid var(--priority-color, #666);
-      border-radius: 6px;
-      background: var(--priority-bg, #fff);
-      margin-bottom: 0.5rem;
-      overflow: hidden;
-    }
-
-    .priority-bar {
-      width: 6px;
-      flex-shrink: 0;
-      background: var(--priority-color, #666);
-    }
-
-    .card.flashing .priority-bar {
-      animation: bar-pulse 1s ease-in-out infinite;
-    }
-
-    @keyframes bar-pulse {
-      0%,
-      100% {
-        box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+  static styles = [
+    themeStyles,
+    css`
+      :host {
+        display: block;
       }
-      50% {
-        box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
-      }
-    }
 
-    @media (prefers-reduced-motion: reduce) {
-      .card.flashing .priority-bar {
-        animation: none;
-      }
-    }
-
-    .content {
-      flex: 1;
-      padding: 0.75rem;
-      min-width: 0;
-      cursor: pointer;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.25rem;
-      flex-wrap: wrap;
-    }
-
-    .priority {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--priority-color, #666);
-    }
-
-    .state {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #e0e0e0;
-      color: #333;
-    }
-
-    .category {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #f0f0f0;
-      color: #666;
-    }
-
-    .stale {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .message {
-      font-size: 0.9rem;
-      color: #222;
-      margin-bottom: 0.25rem;
-    }
-
-    .time {
-      font-size: 0.75rem;
-      color: #888;
-    }
-
-    .silenced {
-      font-size: 0.7rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
-      background: #e8eaf6;
-      color: #3949ab;
-    }
-
-    .actions {
-      display: flex;
-      flex-direction: row;
-      gap: 0.375rem;
-      padding: 0.75rem;
-      align-items: center;
-    }
-
-    .actions button {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 0.375rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      touch-action: manipulation;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .actions button svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
-
-    .actions button:hover:not(:disabled) {
-      background: #f5f5f5;
-    }
-
-    .actions button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .actions button[data-action='acknowledge'] {
-      border-color: #4caf50;
-      color: #2e7d32;
-    }
-
-    .actions button[data-action='silence'] {
-      border-color: #1976d2;
-      color: #1565c0;
-    }
-
-    @media (max-width: 480px) {
       .card {
+        display: flex;
+        align-items: stretch;
+        border: 2px solid var(--priority-color, #666);
+        border-radius: 6px;
+        background: var(--priority-bg, #888);
+        margin-bottom: 0.5rem;
+        overflow: hidden;
+      }
+
+      .priority-bar {
+        width: 6px;
+        flex-shrink: 0;
+        background: var(--priority-color, #666);
+      }
+
+      .card.flashing .priority-bar {
+        animation: bar-pulse 1s ease-in-out infinite;
+      }
+
+      @keyframes bar-pulse {
+        0%,
+        100% {
+          box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+        }
+        50% {
+          box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card.flashing .priority-bar {
+          animation: none;
+        }
+      }
+
+      .content {
+        flex: 1;
+        padding: 0.75rem;
+        min-width: 0;
+        cursor: pointer;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
         flex-wrap: wrap;
       }
 
+      .priority {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--priority-color, #666);
+      }
+
+      .state {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-state-bg);
+        color: var(--badge-state-text);
+      }
+
+      .category {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-category-bg);
+        color: var(--badge-category-text);
+      }
+
+      .stale {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-stale-bg);
+        color: var(--badge-stale-text);
+      }
+
+      .message {
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+      }
+
+      .time {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+      }
+
+      .silenced {
+        font-size: 0.7rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        background: var(--badge-silenced-bg);
+        color: var(--badge-silenced-text);
+      }
+
       .actions {
+        display: flex;
         flex-direction: row;
-        width: 100%;
-        padding: 0 0.75rem 0.75rem;
+        gap: 0.375rem;
+        padding: 0.75rem;
+        align-items: center;
       }
 
       .actions button {
-        flex: 1;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.375rem;
+        border: 1px solid var(--btn-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
+        cursor: pointer;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-    }
-  `
+
+      .actions button svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
+
+      .actions button:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
+
+      .actions button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .actions button[data-action='acknowledge'] {
+        border-color: var(--btn-ack-border);
+        color: var(--btn-ack-text);
+      }
+
+      .actions button[data-action='silence'] {
+        border-color: var(--btn-silence-border);
+        color: var(--btn-silence-text);
+      }
+
+      @media (max-width: 480px) {
+        .card {
+          flex-wrap: wrap;
+        }
+
+        .actions {
+          flex-direction: row;
+          width: 100%;
+          padding: 0 0.75rem 0.75rem;
+        }
+
+        .actions button {
+          flex: 1;
+        }
+      }
+    `
+  ]
 
   declare alert: Alert
   declare minAudiblePriority: MinAudiblePriority | null
@@ -260,7 +264,7 @@ export class AlertCard extends LitElement {
       return nothing
     }
 
-    const colors = PRIORITY_COLORS[this.alert.priority]
+    const colors = priorityVars(this.alert.priority)
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
     const showAck = isUnacked
