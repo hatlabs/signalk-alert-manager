@@ -4,21 +4,15 @@ Signal K server plugin for centralized alert management following maritime and p
 
 ## Why This Plugin?
 
-Signal K's built-in notification system (`notifications.*` paths) provides a basic mechanism for communicating abnormal conditions, but it was designed as a simple key-value signaling layer rather than a full alert management system. As vessels become more instrumented, the gaps become limiting:
+Signal K has no built-in alert management. Maritime safety standards (IMO MSC.302(87), IEC 62682) require features that simply don't exist in the server: alert lifecycle tracking, operator acknowledgment, persistence across restarts, silencing, escalation, and audit trails.
 
-**Signal K notifications are stateless.** A notification is a value at a path — `{ state, method, message }`. There is no lifecycle: no concept of "this alert was raised at time T, acknowledged by person P, and cleared at time T2." When a source updates a notification, the previous state is gone.
+signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, or automatically from incoming `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
 
-**No acknowledgment.** Maritime safety standards (IMO MSC.302(87)) require that operators explicitly acknowledge alerts to confirm awareness. Signal K has no built-in acknowledgment mechanism — the server provides no endpoints or state tracking for it. Acknowledgment requires third-party plugins that modify the `method` or `state` fields as a workaround.
+### Relationship to Signal K Notifications
 
-**No persistence.** Notifications exist only in the server's in-memory delta cache. On restart, all notifications are lost. A zone-based alarm will re-trigger when new data arrives, but manually-raised notifications and any acknowledgment state disappear entirely.
+Signal K's `notifications.*` paths provide a simple signaling layer — a value at a path with a state and message. They were not designed for alert management and lack lifecycle, acknowledgment, persistence, and history. The alert manager is a separate system that can *ingest* notifications as one alert source among others, not a replacement or extension of the notification mechanism.
 
-**No silencing or escalation.** There is no way to temporarily suppress an audible alert without clearing it, and no mechanism for escalating an ignored warning to a higher priority level.
-
-**No history or audit trail.** There is no built-in way to query what alerts occurred in the past, when they were acknowledged, or by whom — information that may be required for compliance and is always useful for troubleshooting.
-
-signalk-alert-manager addresses each of these gaps by implementing a proper alert lifecycle based on IEC 62682 (process industry alarm management) and IMO MSC.302(87) (bridge alert management), while integrating seamlessly with existing Signal K notifications.
-
-### Signal K Notifications vs Alert Manager
+The comparison below summarizes the differences:
 
 | Capability | Signal K Notifications | Alert Manager |
 |---|---|---|
@@ -32,9 +26,7 @@ signalk-alert-manager addresses each of these gaps by implementing a proper aler
 | History | None | Full audit trail with query API |
 | Source tracking | `$source` field | Source liveness monitoring, stale detection |
 | Priority model | Implicit in state string | Four explicit levels (IMO model) with defined behaviors |
-| Creation | Zone triggers or manual deltas | Notifications auto-imported, plus REST API and plugin API |
-
-The two systems are complementary: existing `notifications.*` paths continue to work as before, and the alert manager automatically intercepts them to create managed alerts with full lifecycle support.
+| Creation | Zone triggers or manual deltas | REST API, plugin API, and automatic notification ingestion |
 
 ## Alert Model
 
@@ -92,11 +84,11 @@ Each alert tracks its source. If a source stops sending updates, the alert is ma
 
 ### Actors and Ownership
 
-**Who creates alerts?** Alerts enter the system through three paths:
+**Who creates alerts?** Alerts enter the system through three ingress paths:
 
-- **Signal K notifications** — The plugin automatically intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins' notifications enter the system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
-- **Plugin API** — Other Signal K plugins raise alerts programmatically by calling `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and a `$source` to identify themselves.
+- **Plugin API** — Signal K plugins raise alerts programmatically via `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and a `$source` to identify themselves.
 - **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `$source` is optional and defaults to `'rest-api'`.
+- **Notification ingestion** — The plugin intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins that use the existing notification mechanism enter the alert system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
 
 Each alert is identified by its `path` (with optional `context` for multi-vessel deployments). When the same path is raised again, the existing alert is updated (message refreshed, priority escalated if higher) rather than creating a duplicate.
 
@@ -294,9 +286,9 @@ import type {
 
 ## Signal K Integration
 
-### Notification Interception
+### Notification Ingestion
 
-The plugin intercepts incoming `notifications.*` deltas and transforms them into managed alerts. Signal K notification states map to alert priorities:
+The plugin intercepts incoming `notifications.*` deltas and transforms them into managed alerts, providing a bridge for zone-based alarms and other plugins that use the existing notification mechanism. Signal K notification states map to alert priorities:
 
 | SK Notification State | Alert Priority |
 |---|---|
@@ -306,7 +298,7 @@ The plugin intercepts incoming `notifications.*` deltas and transforms them into
 | `alert` | Caution |
 | `normal`, `nominal` | Clears the condition |
 
-Notifications continue to flow through Signal K normally — the alert manager subscribes non-destructively via `registerDeltaInputHandler`.
+Notifications continue to flow through Signal K normally — the plugin subscribes non-destructively via `registerDeltaInputHandler`.
 
 ### Delta Publishing
 
