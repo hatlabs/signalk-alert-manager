@@ -149,7 +149,7 @@ export class AlertService extends EventTarget {
           this.ws?.send(
             JSON.stringify({
               context: 'vessels.self',
-              subscribe: [{ path: 'alerts.active.*', minPeriod: 0 }]
+              subscribe: [{ path: 'alerts.*', minPeriod: 0 }]
             })
           )
         })
@@ -182,18 +182,21 @@ export class AlertService extends EventTarget {
 
     for (const update of delta.updates ?? []) {
       for (const pathValue of update.values ?? []) {
-        if (!pathValue.path?.startsWith('alerts.active.')) {
+        if (!pathValue.path?.startsWith('alerts.')) {
           continue
         }
 
-        const alertId = pathValue.path.slice('alerts.active.'.length)
+        const alert = pathValue.value as Alert | null | undefined
+        if (alert === null || alert === undefined) {
+          continue
+        }
 
-        if (pathValue.value === null || pathValue.value === undefined) {
-          if (this.alerts.delete(alertId)) {
+        if (alert.state === 'normal') {
+          if (this.alerts.delete(alert.id)) {
             changed = true
           }
         } else {
-          this.alerts.set(alertId, pathValue.value as Alert)
+          this.alerts.set(alert.id, alert)
           changed = true
         }
       }
@@ -251,7 +254,13 @@ function applyFilter(alerts: Alert[], filter: AlertFilter): Alert[] {
  * Unacknowledged states need operator attention and sort before acknowledged.
  * Lower number = higher display priority.
  */
+/**
+ * Sort weight per state. Lower = higher display priority.
+ * Normal alerts are removed before sorting; the entry exists only to
+ * satisfy the Record<AlertState, number> type constraint.
+ */
 const STATE_ORDER: Record<AlertState, number> = {
+  normal: 2,
   unacknowledged: 0,
   'rtn-unacknowledged': 0,
   acknowledged: 1

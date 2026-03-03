@@ -24,7 +24,12 @@ interface SKPrincipal {
 }
 
 const VALID_PRIORITIES: AlertPriority[] = ['emergency', 'alarm', 'warning', 'caution']
-const VALID_STATES: AlertState[] = ['unacknowledged', 'acknowledged', 'rtn-unacknowledged']
+const VALID_STATES: AlertState[] = [
+  'normal',
+  'unacknowledged',
+  'acknowledged',
+  'rtn-unacknowledged'
+]
 const VALID_EVENT_TYPES: HistoryEventType[] = [
   'raise',
   'acknowledge',
@@ -53,9 +58,8 @@ export interface RouteDependencies {
  * they reach these handlers. Unauthenticated requests receive 401 from
  * the server layer and never reach this code.
  *
- * Static paths (/alerts/indication, /alerts/history, /alerts/silence-all)
- * are registered before parametric paths (/alerts/:id) to avoid
- * Express matching issues.
+ * Static paths (/alerts/history, /alerts/silence-all) are registered
+ * before parametric paths (/alerts/:id) to avoid Express matching issues.
  */
 export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
   // --- Config routes ---
@@ -65,16 +69,6 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
   })
 
   // --- Static routes (must come before :id) ---
-
-  router.get('/alerts/indication', (_req: Request, res: Response) => {
-    const manager = deps.getAlertManager()
-    if (!manager) {
-      res.status(503).json({ error: 'Alert manager not ready' })
-      return
-    }
-
-    res.json(manager.getIndicationState())
-  })
 
   router.get('/alerts/history', (req: Request, res: Response) => {
     const historyStore = deps.getHistoryStore()

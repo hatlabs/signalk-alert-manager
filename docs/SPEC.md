@@ -268,8 +268,8 @@ Alerts are published as Signal K deltas:
     "source": { "label": "alert-manager" },
     "timestamp": "2026-01-13T10:30:00Z",
     "values": [{
-      "path": "alerts.active.{id}",
-      "value": { /* Alert object */ }
+      "path": "alerts.{originPath}",
+      "value": { /* Alert object; state: 'normal' when cleared */ }
     }]
   }]
 }
@@ -350,27 +350,6 @@ Combined with Sections 7.3.3 and 7.3.9 (unacknowledged alerts flash, acknowledge
 The "oldest first" ordering within a group ensures the longest-standing alert is most prominent — the one the operator has been ignoring longest demands the most attention.
 
 The sort order is fixed; marine alert lists are small enough that user-configurable sorting adds no value.
-
-### 8.5 External Hardware API
-
-For physical alarm panels, buzzers, and displays:
-
-```
-GET /plugins/signalk-alert-manager/alerts/indication
-```
-
-Returns current indication state:
-```json
-{
-  "audible": true,
-  "priority": "alarm",
-  "flash": true,
-  "silenced": false,
-  "unacknowledgedCount": 3
-}
-```
-
-WebSocket subscription available for real-time indication updates.
 
 ## 9. Persistence
 

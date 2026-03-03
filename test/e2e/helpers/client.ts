@@ -4,7 +4,7 @@
  * Typed wrapper around fetch for the alert-manager REST API endpoints.
  */
 
-import type { Alert, AlertFilter, HistoryQuery, IndicationState } from '../../../src/types.js'
+import type { Alert, AlertFilter, HistoryQuery } from '../../../src/types.js'
 
 const BASE_PATH = '/plugins/signalk-alert-manager'
 
@@ -77,11 +77,6 @@ export class AlertClient {
       body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' }
     })
-  }
-
-  /** GET /alerts/indication — get current indication state */
-  async getIndication(): Promise<Response> {
-    return fetch(this.url('/alerts/indication'))
   }
 
   /** GET /alerts/history — get alert history */
@@ -157,11 +152,6 @@ export class AlertClient {
   }): Promise<Alert> {
     const res = await this.raiseAlert(body)
     return (await res.json()) as Alert
-  }
-
-  async getIndicationJson(): Promise<IndicationState> {
-    const res = await this.getIndication()
-    return (await res.json()) as IndicationState
   }
 
   async getHistoryJson(query?: HistoryQuery): Promise<HistoryResponse> {

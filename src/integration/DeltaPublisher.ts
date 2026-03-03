@@ -5,7 +5,7 @@
  * as Signal K deltas, allowing other SK consumers to react to alerts.
  */
 
-import type { Delta, Context, Path, Timestamp, Value } from '@signalk/server-api'
+import type { Delta, Context, Path, Timestamp } from '@signalk/server-api'
 import type { AlertManager, AlertEvent } from '../core/AlertManager.js'
 
 export interface DeltaPublisherDeps {
@@ -42,9 +42,8 @@ export class DeltaPublisher {
 
   private publishDelta(event: AlertEvent): void {
     try {
-      const alertId = event.alert.id
-      const alertValue = event.type === 'cleared' ? null : event.alert
-      const indicationState = this.deps.alertManager.getIndicationState()
+      const alert = event.alert
+      const alertValue = event.type === 'cleared' ? { ...alert, state: 'normal' as const } : alert
 
       const delta: Delta = {
         context: 'vessels.self' as Context,
@@ -54,12 +53,8 @@ export class DeltaPublisher {
             timestamp: new Date().toISOString() as Timestamp,
             values: [
               {
-                path: `alerts.active.${alertId}` as Path,
+                path: `alerts.${alert.path}` as Path,
                 value: alertValue
-              },
-              {
-                path: 'alerts.indication' as Path,
-                value: indicationState as unknown as Value
               }
             ]
           }

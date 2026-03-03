@@ -30,6 +30,7 @@ export const PRIORITY_LABELS: Record<AlertPriority, string> = {
 }
 
 export const STATE_LABELS: Record<AlertState, string> = {
+  normal: 'Normal',
   unacknowledged: 'Unacknowledged',
   acknowledged: 'Acknowledged',
   'rtn-unacknowledged': 'RTN Unacked'

@@ -37,7 +37,6 @@ describe('OpenAPI specification', () => {
   const expectedEndpoints: [string, string][] = [
     ['get', '/alerts'],
     ['post', '/alerts'],
-    ['get', '/alerts/indication'],
     ['get', '/alerts/history'],
     ['post', '/alerts/silence-all'],
     ['get', '/alerts/{id}'],
@@ -46,7 +45,7 @@ describe('OpenAPI specification', () => {
     ['put', '/alerts/{id}/condition']
   ]
 
-  it('should document all 9 endpoints', () => {
+  it('should document all 8 endpoints', () => {
     const paths = openApi.paths as Record<string, Record<string, unknown>>
     const documented: [string, string][] = []
 
@@ -131,7 +130,12 @@ describe('OpenAPI specification', () => {
 
     it('should define AlertState with all values', () => {
       const schema = openApi.components.schemas.AlertState
-      expect(schema.enum).toEqual(['unacknowledged', 'acknowledged', 'rtn-unacknowledged'])
+      expect(schema.enum).toEqual([
+        'normal',
+        'unacknowledged',
+        'acknowledged',
+        'rtn-unacknowledged'
+      ])
     })
 
     it('should define HistoryEventType with all values', () => {
@@ -144,15 +148,6 @@ describe('OpenAPI specification', () => {
         'clear',
         'escalate'
       ])
-    })
-  })
-
-  describe('IndicationState schema', () => {
-    it('should have all required fields', () => {
-      const schema = openApi.components.schemas.IndicationState
-      expect(schema.required).toEqual(
-        expect.arrayContaining(['audible', 'priority', 'flash', 'silenced', 'unacknowledgedCount'])
-      )
     })
   })
 

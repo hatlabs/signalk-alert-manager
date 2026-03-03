@@ -111,24 +111,6 @@
         }
       }
     },
-    "/alerts/indication": {
-      "get": {
-        "summary": "Get indication state",
-        "description": "Returns the aggregate hardware indication state for driving alarm panels and buzzers.",
-        "operationId": "getIndicationState",
-        "responses": {
-          "200": {
-            "description": "Current indication state.",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/IndicationState" }
-              }
-            }
-          },
-          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
-        }
-      }
-    },
     "/alerts/history": {
       "get": {
         "summary": "Get alert history",
@@ -381,7 +363,7 @@
       },
       "AlertState": {
         "type": "string",
-        "enum": ["unacknowledged", "acknowledged", "rtn-unacknowledged"],
+        "enum": ["normal", "unacknowledged", "acknowledged", "rtn-unacknowledged"],
         "description": "Alert states based on IEC 62682 simplified model."
       },
       "HistoryEventType": {
@@ -417,21 +399,6 @@
           "lastSourceUpdate": { "type": "string", "format": "date-time" },
           "stale": { "type": "boolean" },
           "context": { "type": "string" }
-        }
-      },
-      "IndicationState": {
-        "type": "object",
-        "required": ["audible", "priority", "flash", "silenced", "unacknowledgedCount"],
-        "properties": {
-          "audible": { "type": "boolean" },
-          "priority": {
-            "nullable": true,
-            "allOf": [{ "$ref": "#/components/schemas/AlertPriority" }],
-            "description": "Highest priority of unacknowledged alerts, or null if none."
-          },
-          "flash": { "type": "boolean" },
-          "silenced": { "type": "boolean" },
-          "unacknowledgedCount": { "type": "integer", "minimum": 0 }
         }
       },
       "RaiseAlertRequest": {

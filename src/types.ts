@@ -26,11 +26,12 @@ export type AlertPriority = 'emergency' | 'alarm' | 'warning' | 'caution'
 /**
  * Alert states based on IEC 62682 simplified model.
  *
+ * - normal: No active alert condition (State A / cleared)
  * - unacknowledged: Alert active, operator has not acknowledged (State B)
  * - acknowledged: Alert active, operator has acknowledged (State C)
  * - rtn-unacknowledged: Condition cleared before acknowledgment, awaiting ack (State D)
  */
-export type AlertState = 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged'
+export type AlertState = 'normal' | 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged'
 
 /**
  * Full alert instance representing an active or historical alert.
@@ -132,29 +133,6 @@ export interface AlertDefinition {
 
   /** Optional default category */
   category?: string
-}
-
-/**
- * Current indication state for hardware integration.
- *
- * Represents the aggregate state for driving physical alarm panels,
- * buzzers, and displays.
- */
-export interface IndicationState {
-  /** Whether audible indicators should be active */
-  audible: boolean
-
-  /** Highest priority of unacknowledged alerts, or null if none */
-  priority: AlertPriority | null
-
-  /** Whether visual indicators should flash */
-  flash: boolean
-
-  /** Whether audible indicators are currently silenced */
-  silenced: boolean
-
-  /** Count of unacknowledged alerts */
-  unacknowledgedCount: number
 }
 
 // =============================================================================
@@ -356,7 +334,6 @@ export interface AlertManagerAPI {
   silenceAll(): Promise<void>
   getAlerts(filter?: AlertFilter): Alert[]
   getAlert(id: string): Alert | null
-  getIndicationState(): IndicationState
   registerAlertType(definition: AlertDefinition): void
 }
 
