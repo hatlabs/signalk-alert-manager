@@ -217,24 +217,6 @@ Content-Type: application/json
 
 Used by sources to signal that the triggering condition has resolved.
 
-### Indication State
-
-```
-GET /plugins/signalk-alert-manager/alerts/indication
-```
-
-Returns aggregate state for driving physical alarm panels, buzzers, and displays. The `priority` field is the highest priority among unacknowledged alerts, or `null` when no unacknowledged alerts exist.
-
-```json
-{
-  "audible": true,
-  "priority": "alarm",
-  "flash": true,
-  "silenced": false,
-  "unacknowledgedCount": 3
-}
-```
-
 ### Alert History
 
 ```
@@ -285,9 +267,6 @@ await app.alertManager.silenceAll()
 const emergencies = app.alertManager.getAlerts({ priority: 'emergency' })
 const unacked = app.alertManager.getAlerts({ state: 'unacknowledged' })
 
-// Get indication state for hardware integration
-const indication = app.alertManager.getIndicationState()
-
 // Register a reusable alert type (reserved for future use — definitions
 // are stored but not yet consumed by raiseAlert)
 app.alertManager.registerAlertType({
@@ -309,7 +288,6 @@ import type {
   AlertManagerAPI,
   RaiseAlertRequest,
   AlertFilter,
-  IndicationState,
   HistoryEntry
 } from 'signalk-alert-manager'
 ```
@@ -332,7 +310,59 @@ Notifications continue to flow through Signal K normally — the alert manager s
 
 ### Delta Publishing
 
-Alert state changes are published as Signal K deltas on `alerts.active.*` and `alerts.indication` paths, enabling real-time updates for any WebSocket-connected client.
+Alert state changes are published as Signal K deltas on `alerts.*` paths, keyed by the alert's origin Signal K path. Each delta contains one value: the full alert object at the corresponding path.
+
+**Delta structure:**
+
+```json
+{
+  "context": "vessels.self",
+  "updates": [{
+    "source": { "label": "alert-manager" },
+    "timestamp": "2026-01-13T10:30:00.000Z",
+    "values": [{
+      "path": "alerts.propulsion.main.coolantTemperature",
+      "value": {
+        "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "path": "propulsion.main.coolantTemperature",
+        "$source": "n2k-on-ve.can-bus.115",
+        "priority": "alarm",
+        "state": "unacknowledged",
+        "condition": true,
+        "latching": true,
+        "silenced": false,
+        "message": "Coolant temperature high",
+        "raisedAt": "2026-01-13T10:30:00.000Z",
+        "sourceOnline": true,
+        "lastSourceUpdate": "2026-01-13T10:30:00.000Z",
+        "stale": false
+      }
+    }]
+  }]
+}
+```
+
+**Alert lifecycle as deltas** — a single alert path receives updates as its state changes:
+
+| Event | `state` | Notes |
+|---|---|---|
+| Raised | `unacknowledged` | New alert or re-raised |
+| Acknowledged | `acknowledged` | Operator acknowledged |
+| Condition cleared (latching) | `rtn-unacknowledged` | Condition resolved, awaiting ack |
+| Silenced | `unacknowledged` | `silenced: true`, `silencedUntil` set |
+| Escalated | `unacknowledged` | `priority` upgraded (e.g., warning → alarm) |
+| Cleared | `normal` | Final value — alert fully resolved |
+
+When an alert clears, the full alert object is published with `state: 'normal'`. This is the terminal value at the path — consumers should treat `normal` as "no active alert for this path".
+
+**WebSocket subscription:**
+
+```json
+{
+  "context": "vessels.self",
+  "subscribe": [{ "path": "alerts.*", "minPeriod": 0 }]
+}
+```
 
 ## Web UI
 

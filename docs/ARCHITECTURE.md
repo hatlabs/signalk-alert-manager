@@ -106,14 +106,12 @@ Uses Express router via `plugin.registerWithRouter()`.
 Real-time alert updates via Signal K delta mechanism.
 
 **Responsibilities:**
-- Publish alert changes to `alerts.active.*` paths
-- Publish indication state changes
+- Publish alert changes to `alerts.*` paths, keyed by origin path
 - Handle multi-vessel context
 
 **Delta Structure:**
 ```
-vessels.self.alerts.active.<alertId> = Alert object
-vessels.self.alerts.indication = { audible, priority, flash, ... }
+vessels.self.alerts.<originPath> = Alert object (state: 'normal' when cleared)
 ```
 
 ### 2.6 Web UI
@@ -148,7 +146,7 @@ Browser-based alert management interface.
 type AlertPriority = 'emergency' | 'alarm' | 'warning' | 'caution';
 
 // Alert states (IEC 62682 simplified)
-type AlertState = 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
+type AlertState = 'normal' | 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
 
 // Full alert instance
 interface Alert {
@@ -188,14 +186,6 @@ interface AlertDefinition {
   category?: string;
 }
 
-// Indication state for hardware integration
-interface IndicationState {
-  audible: boolean;
-  priority: AlertPriority | null;
-  flash: boolean;
-  silenced: boolean;
-  unacknowledgedCount: number;
-}
 ```
 
 ### 3.2 API Request/Response Types
