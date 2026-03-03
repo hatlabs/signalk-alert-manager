@@ -33,3 +33,19 @@ export const STATE_LABELS: Record<AlertState, string> = {
   acknowledged: 'Acknowledged',
   'rtn-unacknowledged': 'RTN Unacked'
 }
+
+/** Priority values that can produce audio, plus 'off' to disable all audio. */
+export type MinAudiblePriority = 'off' | AlertPriority
+
+/** Valid values for the minAudiblePriority config option. */
+export const VALID_AUDIBLE_PRIORITIES = new Set<string>(['off', 'emergency', 'alarm', 'warning'])
+
+/** Whether an alert at the given priority would produce audio. */
+export function isAudible(
+  priority: AlertPriority,
+  minAudiblePriority: MinAudiblePriority | null
+): boolean {
+  if (!minAudiblePriority) return true
+  if (minAudiblePriority === 'off') return false
+  return PRIORITY_ORDER[priority] <= PRIORITY_ORDER[minAudiblePriority]
+}

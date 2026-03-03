@@ -8,7 +8,8 @@
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
 import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
-import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS } from '../styles/priority.js'
+import { PRIORITY_COLORS, PRIORITY_LABELS, STATE_LABELS, isAudible } from '../styles/priority.js'
+import type { MinAudiblePriority } from '../styles/priority.js'
 import { formatTime } from '../utils/format.js'
 
 /** Timeout before re-enabling buttons if no WebSocket update arrives. */
@@ -17,6 +18,7 @@ const ACTION_TIMEOUT_MS = 5000
 export class AlertCard extends LitElement {
   static properties = {
     alert: { type: Object },
+    minAudiblePriority: { type: String, attribute: 'min-audible-priority' },
     actionInFlight: { state: true }
   }
 
@@ -191,12 +193,14 @@ export class AlertCard extends LitElement {
   `
 
   declare alert: Alert
+  declare minAudiblePriority: MinAudiblePriority | null
   declare actionInFlight: boolean
 
   private safetyTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     super()
+    this.minAudiblePriority = null
     this.actionInFlight = false
   }
 
@@ -260,7 +264,8 @@ export class AlertCard extends LitElement {
     const isUnacked =
       this.alert.state === 'unacknowledged' || this.alert.state === 'rtn-unacknowledged'
     const showAck = isUnacked
-    const showSilence = isUnacked && !this.alert.silenced
+    const showSilence =
+      isUnacked && !this.alert.silenced && isAudible(this.alert.priority, this.minAudiblePriority)
     const hasActions = showAck || showSilence
 
     return html`

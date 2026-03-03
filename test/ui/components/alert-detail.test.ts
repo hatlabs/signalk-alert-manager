@@ -90,11 +90,16 @@ afterEach(() => {
  */
 async function createElement(alert: Alert, history: HistoryEntry[] = []) {
   // First fetch: AlertService.connect() fetches all alerts
-  // Second fetch: history for this specific alert
+  // Second fetch: fetchUiConfig() fetches UI config
+  // Third fetch: history for this specific alert
   fetchMock
     .mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve([alert])
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({})
     })
     .mockResolvedValueOnce({
       ok: true,
@@ -396,6 +401,36 @@ describe('AlertDetail', () => {
       expect(silenceIdx).toBeGreaterThanOrEqual(0)
       expect(ackIdx).toBeGreaterThanOrEqual(0)
       expect(silenceIdx).toBeLessThan(ackIdx)
+    })
+
+    it('hides silence button when alert priority is below minAudiblePriority', async () => {
+      const el = await createElement(
+        makeAlert({ state: 'unacknowledged', priority: 'caution', silenced: false })
+      )
+      ;(el as unknown as { minAudiblePriority: string }).minAudiblePriority = 'warning'
+      await el.updateComplete
+      const silenceBtn = shadowQuery(el, 'button[data-action="silence"]')
+      expect(silenceBtn).toBeNull()
+    })
+
+    it('hides silence button when minAudiblePriority is off', async () => {
+      const el = await createElement(
+        makeAlert({ state: 'unacknowledged', priority: 'emergency', silenced: false })
+      )
+      ;(el as unknown as { minAudiblePriority: string }).minAudiblePriority = 'off'
+      await el.updateComplete
+      const silenceBtn = shadowQuery(el, 'button[data-action="silence"]')
+      expect(silenceBtn).toBeNull()
+    })
+
+    it('shows silence button when alert priority meets minAudiblePriority', async () => {
+      const el = await createElement(
+        makeAlert({ state: 'unacknowledged', priority: 'alarm', silenced: false })
+      )
+      ;(el as unknown as { minAudiblePriority: string }).minAudiblePriority = 'warning'
+      await el.updateComplete
+      const silenceBtn = shadowQuery(el, 'button[data-action="silence"]')
+      expect(silenceBtn).not.toBeNull()
     })
 
     it('has aria-labels on action buttons', async () => {
