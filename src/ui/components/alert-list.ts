@@ -7,8 +7,10 @@
 
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
-import { AlertService } from '../services/alert-service.js'
-import { AudioService } from '../services/audio-service.js'
+import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
+import type { AlertService } from '../services/alert-service.js'
+import { acquireAudioService, releaseAudioService } from '../services/audio-service.js'
+import type { AudioService } from '../services/audio-service.js'
 import { VALID_AUDIBLE_PRIORITIES } from '../styles/priority.js'
 import type { MinAudiblePriority } from '../styles/priority.js'
 import { SimulationService } from '../services/simulation-service.js'
@@ -123,9 +125,9 @@ export class AlertList extends LitElement {
   declare simulationRunning: boolean
   declare simulationEnabled: boolean
 
-  private service = new AlertService()
-  private audioService = new AudioService()
-  private simulation = new SimulationService(() => this.service.getAlerts())
+  private service!: AlertService
+  private audioService!: AudioService
+  private simulation!: SimulationService
 
   constructor() {
     super()
@@ -137,12 +139,14 @@ export class AlertList extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback()
+    this.service = acquireAlertService()
+    this.audioService = acquireAudioService()
+    this.simulation = new SimulationService(() => this.service.getAlerts())
     this.service.addEventListener('change', this.onServiceChange)
     this.addEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.addEventListener('alert-silence', this.onAlertSilence as EventListener)
-    this.service.connect().catch(() => {
-      // Connection failure; alerts stay empty until retry succeeds
-    })
+    // Service connects on first acquire; change event will fire when ready
+    this.onServiceChange()
     this.fetchUiConfig()
   }
 
@@ -177,8 +181,8 @@ export class AlertList extends LitElement {
     this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
     this.simulation.stop()
-    this.service.disconnect()
-    this.audioService.dispose()
+    releaseAlertService()
+    releaseAudioService()
   }
 
   private onServiceChange = (): void => {

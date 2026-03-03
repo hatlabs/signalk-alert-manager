@@ -6,6 +6,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { Alert } from '../../../src/types.js'
+import { _resetAlertServiceSingleton } from '../../../src/ui/services/alert-service.js'
+import { _resetAudioServiceSingleton } from '../../../src/ui/services/audio-service.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -424,6 +426,8 @@ describe('AlertList', () => {
 
   afterEach(() => {
     document.body.innerHTML = ''
+    _resetAlertServiceSingleton()
+    _resetAudioServiceSingleton()
     vi.unstubAllGlobals()
   })
 

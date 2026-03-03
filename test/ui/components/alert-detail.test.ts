@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { Alert, HistoryEntry } from '../../../src/types.js'
+import { _resetAlertServiceSingleton } from '../../../src/ui/services/alert-service.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +76,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  _resetAlertServiceSingleton()
   vi.restoreAllMocks()
 })
 

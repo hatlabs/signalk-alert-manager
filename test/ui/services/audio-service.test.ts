@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { Alert, AlertPriority } from '../../../src/types.js'
+import { _resetAudioServiceSingleton } from '../../../src/ui/services/audio-service.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -127,6 +128,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  _resetAudioServiceSingleton()
   vi.restoreAllMocks()
 })
 
