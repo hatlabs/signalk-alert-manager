@@ -259,8 +259,14 @@ export class AlertManager extends EventEmitter {
 
     const result = this.stateMachine.acknowledge(alert, userId)
 
-    // Cancel escalation timer on acknowledge
     this.escalationTimer.cancelTimer(alertId)
+    this.cancelSilenceExpirationTimer(alertId)
+    // Silencing is superseded by acknowledge — clear flags without emitting
+    // a separate 'unsilenced' event, since the 'acknowledged' event already
+    // conveys that the operator has attended to the alert.
+    if (result.alert?.silenced) {
+      result.alert = this.stateMachine.unsilence(result.alert)
+    }
 
     if (result.cleared) {
       await this.removeAlert(alertId, alert)
@@ -271,7 +277,10 @@ export class AlertManager extends EventEmitter {
         details: { message: alert.message, priority: alert.priority, category: alert.category }
       })
       this.emitEvent('cleared', alert, result.previousState)
-    } else if (result.alert) {
+      return result
+    }
+
+    if (result.alert) {
       this.alerts.set(alertId, result.alert)
       if (this.store) {
         await this.store.update(result.alert)
