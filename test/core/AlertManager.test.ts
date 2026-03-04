@@ -1806,7 +1806,7 @@ describe('AlertManager', () => {
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
-      expect(historyStore.entries[0].newState).toBe('cleared')
+      expect(historyStore.entries[0].newState).toBe('normal')
     })
 
     it('should log silence event', async () => {
@@ -1855,7 +1855,7 @@ describe('AlertManager', () => {
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
-      expect(historyStore.entries[0].newState).toBe('cleared')
+      expect(historyStore.entries[0].newState).toBe('normal')
     })
 
     it('should log clear event on clearCondition (RTN transition)', async () => {
