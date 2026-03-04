@@ -7,7 +7,7 @@
  * Dispatches 'change' events when the alert list is updated.
  */
 
-import type { Alert, AlertFilter, AlertPriority, AlertState } from '../../types.js'
+import type { Alert, AlertFilter, AlertPriority, AlertState, HistoryEntry } from '../../types.js'
 import { PRIORITY_ORDER } from '../styles/priority.js'
 
 /**
@@ -98,6 +98,32 @@ export class AlertService extends EventTarget {
     if (!response.ok) {
       throw new Error(`Failed to silence alert: ${String(response.status)} ${response.statusText}`)
     }
+  }
+
+  /**
+   * Fetch alert history from the REST API.
+   * Does not require WebSocket state — works as a standalone query.
+   */
+  static async fetchHistory(params: {
+    from?: string
+    to?: string
+    eventType?: string
+    limit?: number
+    offset?: number
+  }): Promise<{ entries: HistoryEntry[]; total: number }> {
+    const query = new URLSearchParams()
+    if (params.from) query.set('from', params.from)
+    if (params.to) query.set('to', params.to)
+    if (params.eventType) query.set('eventType', params.eventType)
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+
+    const url = `${API_BASE}/alerts/history${query.toString() ? `?${query.toString()}` : ''}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch history: ${String(response.status)} ${response.statusText}`)
+    }
+    return response.json()
   }
 
   /** Silence all unacknowledged alerts. */

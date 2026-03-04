@@ -382,10 +382,8 @@ export class AlertDetail extends LitElement {
     if (match) {
       this.alert = match
       this.error = null
-    } else {
-      const wasPreviouslyLoaded = this.alert !== null
-      this.alert = null
-      this.error = wasPreviouslyLoaded ? 'Alert has been cleared' : 'Alert not found'
+    } else if (!this.alert) {
+      // Alert not in active list — history may reconstruct it (see loadHistory)
     }
   }
 
@@ -401,8 +399,57 @@ export class AlertDetail extends LitElement {
       }
       const result: { entries: HistoryEntry[]; total: number } = await response.json()
       this.history = result.entries
+
+      // If alert is not in active list, reconstruct from history snapshot data
+      if (!this.alert && result.entries.length > 0) {
+        this.alert = this.reconstructAlertFromHistory(result.entries)
+        if (!this.alert) {
+          this.error = 'Alert not found'
+        }
+      } else if (!this.alert) {
+        this.error = 'Alert not found'
+      }
     } catch {
       this.historyError = true
+      if (!this.alert) {
+        this.error = 'Alert not found'
+      }
+    }
+  }
+
+  /**
+   * Reconstruct a minimal Alert from history entries for cleared alerts.
+   * Uses snapshot data stored in raise/clear event details.
+   */
+  private reconstructAlertFromHistory(entries: HistoryEntry[]): Alert | null {
+    const raise = entries.find((e) => e.eventType === 'raise')
+    const clear = [...entries].reverse().find((e) => e.eventType === 'clear')
+    const ack = [...entries].reverse().find((e) => e.eventType === 'acknowledge')
+
+    const snapshot = (raise?.details ?? clear?.details) as
+      | { message?: string; priority?: string; category?: string }
+      | undefined
+
+    if (!snapshot?.message) return null
+
+    return {
+      id: this.alertId,
+      path: '',
+      $source: '',
+      priority: (snapshot.priority as Alert['priority']) ?? 'caution',
+      state: 'normal',
+      condition: false,
+      latching: false,
+      silenced: false,
+      message: snapshot.message,
+      category: snapshot.category,
+      raisedAt: raise?.timestamp ?? entries[0].timestamp,
+      clearedAt: clear?.timestamp,
+      acknowledgedAt: ack?.timestamp,
+      acknowledgedBy: ack?.userId,
+      sourceOnline: false,
+      lastSourceUpdate: entries[entries.length - 1].timestamp,
+      stale: false
     }
   }
 

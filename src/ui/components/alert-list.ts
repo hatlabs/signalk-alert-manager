@@ -16,12 +16,15 @@ import { VALID_AUDIBLE_PRIORITIES } from '../styles/priority.js'
 import type { MinAudiblePriority } from '../styles/priority.js'
 import { SimulationService } from '../services/simulation-service.js'
 
+type ViewMode = 'active' | 'history'
+
 export class AlertList extends LitElement {
   static properties = {
     alerts: { state: true },
     minAudiblePriority: { state: true },
     simulationRunning: { state: true },
-    simulationEnabled: { state: true }
+    simulationEnabled: { state: true },
+    viewMode: { state: true }
   }
 
   static styles = [
@@ -103,6 +106,32 @@ export class AlertList extends LitElement {
         background: var(--btn-sim-active-hover);
       }
 
+      .view-toggle {
+        display: flex;
+        margin-bottom: 1rem;
+        background: var(--toggle-bg);
+        border-radius: 6px;
+        padding: 3px;
+      }
+
+      .view-toggle button {
+        flex: 1;
+        min-height: 36px;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--toggle-inactive-bg);
+        color: var(--toggle-inactive-text);
+        touch-action: manipulation;
+      }
+
+      .view-toggle button.active {
+        background: var(--toggle-active-bg);
+        color: var(--toggle-active-text);
+      }
+
       .empty {
         text-align: center;
         padding: 2rem;
@@ -128,6 +157,7 @@ export class AlertList extends LitElement {
   declare minAudiblePriority: MinAudiblePriority | null
   declare simulationRunning: boolean
   declare simulationEnabled: boolean
+  declare viewMode: ViewMode
 
   private service!: AlertService
   private audioService!: AudioService
@@ -139,6 +169,7 @@ export class AlertList extends LitElement {
     this.minAudiblePriority = null
     this.simulationRunning = false
     this.simulationEnabled = false
+    this.viewMode = 'active'
   }
 
   connectedCallback(): void {
@@ -250,7 +281,11 @@ export class AlertList extends LitElement {
     )
   }
 
-  render() {
+  private setViewMode(mode: ViewMode): void {
+    this.viewMode = mode
+  }
+
+  private renderActiveView() {
     return html`
       <div class="toolbar">
         <span class="alert-count"
@@ -279,6 +314,29 @@ export class AlertList extends LitElement {
       ${this.alerts.length === 0
         ? html`<div class="empty">No alerts</div>`
         : html` <div class="list">${this.renderAlertList()}</div> `}
+    `
+  }
+
+  render() {
+    return html`
+      <div class="view-toggle">
+        <button
+          class=${this.viewMode === 'active' ? 'active' : ''}
+          @click=${() => this.setViewMode('active')}
+        >
+          Active
+        </button>
+        <button
+          class=${this.viewMode === 'history' ? 'active' : ''}
+          @click=${() => this.setViewMode('history')}
+        >
+          History
+        </button>
+      </div>
+
+      ${this.viewMode === 'active'
+        ? this.renderActiveView()
+        : html`<alert-history-list></alert-history-list>`}
     `
   }
 }
