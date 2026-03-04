@@ -68,6 +68,16 @@ export const themeStyles = css`
     --priority-caution-color: #1976d2;
     --priority-caution-bg: #e3f2fd;
 
+    --toggle-bg: #e0e0e0;
+    --toggle-active-bg: #1976d2;
+    --toggle-active-text: #fff;
+    --toggle-inactive-bg: transparent;
+    --toggle-inactive-text: #666;
+
+    --history-card-bg: #fafafa;
+    --history-card-border: #e0e0e0;
+    --history-label-color: #888;
+
     --error-text: #d32f2f;
   }
 
@@ -125,6 +135,16 @@ export const themeStyles = css`
       --priority-warning-bg: #3b3510;
       --priority-caution-color: #64b5f6;
       --priority-caution-bg: #1a2a3b;
+
+      --toggle-bg: #333;
+      --toggle-active-bg: #1565c0;
+      --toggle-active-text: #fff;
+      --toggle-inactive-bg: transparent;
+      --toggle-inactive-text: #999;
+
+      --history-card-bg: #2a2a2a;
+      --history-card-border: #444;
+      --history-label-color: #777;
 
       --error-text: #ef5350;
     }
