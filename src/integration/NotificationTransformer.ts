@@ -153,16 +153,22 @@ export class NotificationTransformer {
       return
     }
 
-    // Guard: if we already track an active alert for this path, just heartbeat
+    // If we already track an active alert for this path, check whether
+    // priority or message changed — if so, re-raise to let AlertManager
+    // handle escalation. Otherwise just heartbeat for source liveness.
     const existingAlertId = this.pathToAlertId.get(path)
     if (existingAlertId) {
       const existingAlert = this.deps.alertManager.getAlert(existingAlertId)
       if (existingAlert) {
-        this.deps.alertManager.sourceHeartbeat($source ?? 'notifications')
-        return
+        if (existingAlert.priority === priority && existingAlert.message === value.message) {
+          this.deps.alertManager.sourceHeartbeat($source ?? 'notifications')
+          return
+        }
+        // Priority or message changed — fall through to re-raise
+      } else {
+        // Alert was cleared externally — fall through to re-raise
+        this.pathToAlertId.delete(path)
       }
-      // Alert was cleared externally — fall through to re-raise
-      this.pathToAlertId.delete(path)
     }
 
     // Strip "notifications." prefix — it's a tree location, not identity
