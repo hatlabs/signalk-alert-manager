@@ -6,7 +6,7 @@ Signal K server plugin for centralized alert management following maritime and p
 
 Signal K has no built-in alert management. Maritime safety standards (IMO MSC.302(87), IEC 62682) require features that simply don't exist in the server: alert lifecycle tracking, operator acknowledgment, persistence across restarts, silencing, escalation, and audit trails.
 
-signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, or automatically from incoming `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
+signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, incoming `alerts.*` deltas from devices, or automatically from existing `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
 
 ### Relationship to Signal K Notifications
 
@@ -26,7 +26,7 @@ The comparison below summarizes the differences:
 | History | None | Full audit trail with query API |
 | Source tracking | `$source` field | Source liveness monitoring, stale detection |
 | Priority model | Implicit in state string | Four explicit levels (IMO model) with defined behaviors |
-| Creation | Zone triggers or manual deltas | REST API, plugin API, and automatic notification ingestion |
+| Creation | Zone triggers or manual deltas | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
 
 ## Alert Model
 
@@ -84,10 +84,11 @@ Each alert tracks its source. If a source stops sending updates, the alert is ma
 
 ### Actors and Ownership
 
-**Who creates alerts?** Alerts enter the system through three ingress paths:
+**Who creates alerts?** Alerts enter the system through four ingress paths:
 
 - **Plugin API** — Signal K plugins raise alerts programmatically via `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and a `$source` to identify themselves.
 - **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `$source` is optional and defaults to `'rest-api'`.
+- **Alert deltas** — Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.*` paths. See [Alert Delta Ingestion](#alert-delta-ingestion) below.
 - **Notification ingestion** — The plugin intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins that use the existing notification mechanism enter the alert system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
 
 Each alert is identified by its `path` (with optional `context` for multi-vessel deployments). When the same path is raised again, the existing alert is updated (message refreshed, priority escalated if higher) rather than creating a duplicate.
@@ -299,6 +300,53 @@ The plugin intercepts incoming `notifications.*` deltas and transforms them into
 | `normal`, `nominal` | Clears the condition |
 
 Notifications continue to flow through Signal K normally — the plugin subscribes non-destructively via `registerDeltaInputHandler`.
+
+### Alert Delta Ingestion
+
+Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.*` paths. The portion after `alerts.` becomes the alert's `path` (e.g., delta path `alerts.propulsion.main.coolantTemperature` → alert path `propulsion.main.coolantTemperature`).
+
+**Raise an alert:**
+
+```json
+{
+  "updates": [{
+    "values": [{
+      "path": "alerts.propulsion.main.coolantTemperature",
+      "value": {
+        "priority": "alarm",
+        "message": "Engine coolant temperature high",
+        "category": "engine",
+        "data": { "value": 95, "threshold": 90 },
+        "latching": false
+      }
+    }]
+  }]
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `priority` | Yes | `emergency`, `alarm`, `warning`, or `caution` |
+| `message` | Yes | Human-readable alert message |
+| `category` | No | Grouping label (e.g., `"engine"`, `"navigation"`) |
+| `data` | No | Arbitrary context object (non-array) |
+| `latching` | No | Whether the alert latches (stays active after condition clears) |
+
+Lifecycle fields (`id`, `state`, `silenced`, timestamps, etc.) are ignored — the AlertManager is authoritative for those.
+
+**Clear an alert condition** (two equivalent forms):
+
+```json
+{ "path": "alerts.propulsion.main.coolantTemperature", "value": null }
+```
+
+```json
+{ "path": "alerts.propulsion.main.coolantTemperature", "value": { "state": "normal" } }
+```
+
+**Update behavior:** If a delta arrives for a path that already has an active alert with the same priority and message, it acts as a heartbeat (refreshes source liveness). If priority or message changed, the alert is re-raised with the new values.
+
+Deltas published by the alert manager's own delta publisher (source label `alert-manager`) are ignored to prevent feedback loops.
 
 ### Delta Publishing
 
