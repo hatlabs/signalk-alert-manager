@@ -333,6 +333,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       historyStore = undefined
       manager = undefined
       transformer = undefined
+      alertDeltaTransformer = undefined
       publisher = undefined
       readyPromise = undefined
     },

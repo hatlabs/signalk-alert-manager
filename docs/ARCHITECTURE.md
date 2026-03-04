@@ -63,12 +63,12 @@ Persistence layer for alerts and history.
 
 ### 2.3 SK Integration
 
-Bridges existing Signal K notifications with the alert system.
+Bridges existing Signal K data paths with the alert system.
 
 **Responsibilities:**
-- Subscribe to `notifications.*` delta stream
-- Transform SK notifications to managed alerts
-- Map SK states (`normal`, `alert`, `warn`, `alarm`, `emergency`) to alert priorities
+- Subscribe to `notifications.*` delta stream and transform SK notifications to managed alerts
+- Subscribe to `alerts.*` delta stream and ingest alerts using the native alert data model
+- Map SK notification states (`normal`, `alert`, `warn`, `alarm`, `emergency`) to alert priorities
 - Publish alert state changes as SK deltas
 
 **State Mapping:**
@@ -252,17 +252,17 @@ app.error(message)
 plugin.registerWithRouter(router)
 ```
 
-### 5.2 Notification Subscription
+### 5.2 Delta Ingress
 
-Two approaches for intercepting notifications:
+The plugin registers two delta input handlers to intercept incoming deltas:
 
-**Option A: Delta Input Handler (recommended)**
+**Notification ingress** (`notifications.*` paths):
 ```typescript
 app.registerDeltaInputHandler((delta, next) => {
   delta.updates.forEach(update => {
     update.values.forEach(pathValue => {
       if (pathValue.path.startsWith('notifications.')) {
-        // Transform to alert
+        // Transform SK notification to managed alert
       }
     })
   })
@@ -270,16 +270,22 @@ app.registerDeltaInputHandler((delta, next) => {
 })
 ```
 
-**Option B: Stream subscription**
+**Alert delta ingress** (`alerts.*` paths):
 ```typescript
-// getSelfBus() returns full objects with path, value, context, etc.
-// Without argument, receives all paths - filter for notifications
-app.streambundle.getSelfBus()
-  .filter(delta => delta.path.startsWith('notifications.'))
-  .onValue(({ path, value, context, timestamp }) => {
-    // Transform to alert
+app.registerDeltaInputHandler((delta, next) => {
+  delta.updates.forEach(update => {
+    update.values.forEach(pathValue => {
+      if (pathValue.path.startsWith('alerts.')) {
+        // Ingest alert using native alert data model
+        // Supports raise (with priority + message) and clear (null value)
+      }
+    })
   })
+  next(delta) // Pass through to normal processing
+})
 ```
+
+The alert delta ingress allows other plugins and external sources to raise alerts using the alert manager's native data model, bypassing the notification-to-alert mapping layer.
 
 ### 5.3 Plugin API Export
 
@@ -340,6 +346,7 @@ signalk-alert-manager/
 │   │   └── index.ts
 │   ├── integration/
 │   │   ├── NotificationTransformer.ts  # SK notification bridge
+│   │   ├── AlertDeltaTransformer.ts    # alerts.* delta ingress
 │   │   ├── DeltaPublisher.ts           # Delta output
 │   │   └── index.ts
 │   ├── api/

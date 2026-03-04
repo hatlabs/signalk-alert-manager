@@ -473,4 +473,23 @@ describe('AlertDeltaTransformer', () => {
     await new Promise((r) => setTimeout(r, 10))
     // Should not throw
   })
+
+  it('should ignore deltas with primitive (non-object) values', async () => {
+    const delta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'alerts.engine.overheating',
+              value: 42
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta)
+    await new Promise((r) => setTimeout(r, 10))
+    expect(alertManager.getActiveAlertCount()).toBe(0)
+  })
 })

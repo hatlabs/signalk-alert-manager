@@ -18,11 +18,9 @@ import type { Delta, DeltaInputHandler } from '@signalk/server-api'
 import { hasValues } from '@signalk/server-api'
 import type { AlertManager, AlertEvent } from '../core/AlertManager.js'
 import type { AlertPriority } from '../types.js'
+import { OWN_SOURCE_LABEL } from './DeltaPublisher.js'
 
 const ALERTS_PREFIX = 'alerts.'
-
-/** Source label used by DeltaPublisher — skip these to avoid feedback. */
-const OWN_SOURCE_LABEL = 'alert-manager'
 
 const VALID_PRIORITIES = new Set<string>(['emergency', 'alarm', 'warning', 'caution'])
 
@@ -198,7 +196,11 @@ export class AlertDeltaTransformer {
     }
 
     this.pathToAlertId.delete(deltaPath)
-    await this.deps.alertManager.clearCondition(alertId)
+    try {
+      await this.deps.alertManager.clearCondition(alertId)
+    } catch {
+      // Alert may have been cleared via another path (REST API, NotificationTransformer, etc.)
+    }
   }
 
   private removeAlertIdFromMap(alertId: string): void {
