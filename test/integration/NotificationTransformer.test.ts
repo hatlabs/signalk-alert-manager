@@ -736,4 +736,156 @@ describe('NotificationTransformer', () => {
 
     expect(heartbeatSpy).toHaveBeenCalledWith('n2k-on-ve.can-bus.115')
   })
+
+  it('should escalate priority when source publishes higher state', async () => {
+    const cautionDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.nav.waypoint',
+              value: makeNotification(ALARM_STATE.alert, 'Approaching waypoint')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(cautionDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+    expect(alertManager.getAlerts()[0].priority).toBe('caution')
+
+    const alarmDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.nav.waypoint',
+              value: makeNotification(ALARM_STATE.alarm, 'Waypoint overshoot')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getAlerts()[0].priority).toBe('alarm')
+    })
+
+    // Should still be the same alert (updated, not duplicated)
+    expect(alertManager.getActiveAlertCount()).toBe(1)
+  })
+
+  it('should update message when source publishes new message at same priority', async () => {
+    const delta1 = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Temperature rising')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta1)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+    expect(alertManager.getAlerts()[0].message).toBe('Temperature rising')
+
+    const delta2 = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Temperature critical')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta2)
+    await vi.waitFor(() => {
+      expect(alertManager.getAlerts()[0].message).toBe('Temperature critical')
+    })
+    expect(alertManager.getActiveAlertCount()).toBe(1)
+  })
+
+  it('should not de-escalate when source publishes lower state', async () => {
+    const alarmDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(alarmDelta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+    expect(alertManager.getAlerts()[0].priority).toBe('alarm')
+
+    const cautionDelta = createTestDelta({
+      updates: [
+        {
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alert, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(cautionDelta)
+    await new Promise((r) => setTimeout(r, 10))
+
+    // Priority should remain at alarm — AlertManager blocks de-escalation
+    expect(alertManager.getAlerts()[0].priority).toBe('alarm')
+    expect(alertManager.getActiveAlertCount()).toBe(1)
+  })
+
+  it('should not re-raise when priority and message are unchanged', async () => {
+    const raiseAlertSpy = vi.spyOn(alertManager, 'raiseAlert')
+
+    const delta = createTestDelta({
+      updates: [
+        {
+          $source: 'sensor-1',
+          values: [
+            {
+              path: 'notifications.engine.overheating',
+              value: makeNotification(ALARM_STATE.alarm, 'Engine overheating')
+            }
+          ]
+        }
+      ]
+    })
+
+    pushDelta(delta)
+    await vi.waitFor(() => {
+      expect(alertManager.getActiveAlertCount()).toBe(1)
+    })
+
+    // Same priority and message → should heartbeat, not re-raise
+    pushDelta(delta)
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(raiseAlertSpy).toHaveBeenCalledTimes(1)
+  })
 })
