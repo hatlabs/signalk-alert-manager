@@ -264,7 +264,7 @@ export class AlertManager extends EventEmitter {
       this.logHistory('clear', alert, {
         userId,
         previousState: result.previousState,
-        newState: 'cleared'
+        newState: 'normal'
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -453,7 +453,7 @@ export class AlertManager extends EventEmitter {
       await this.removeAlert(alertId, alert)
       this.logHistory('clear', alert, {
         previousState: result.previousState,
-        newState: 'cleared'
+        newState: 'normal'
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
