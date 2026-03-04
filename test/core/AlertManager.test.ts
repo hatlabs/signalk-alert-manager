@@ -1104,6 +1104,58 @@ describe('AlertManager', () => {
         fakeTimers.advanceTime(5000)
       }).not.toThrow()
     })
+
+    it('should cancel silence timer and clear flags on acknowledge', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id, 5000)
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+
+      await manager.acknowledgeAlert(alert.id)
+
+      // Silence flags should be cleared immediately on acknowledge
+      const acknowledged = manager.getAlert(alert.id)
+      expect(acknowledged?.silenced).toBe(false)
+      expect(acknowledged?.silencedUntil).toBeUndefined()
+
+      // Advancing past silence duration should not emit unsilenced event
+      events = []
+      fakeTimers.advanceTime(5000)
+      expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
+    })
+
+    it('should clear silenced rtn-unacknowledged alert without emitting unsilenced event', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      // Silence, then clear condition -> rtn-unacknowledged (still silenced)
+      await manager.silenceAlert(alert.id, 10000)
+      await manager.clearCondition(alert.id)
+      expect(manager.getAlert(alert.id)?.state).toBe('rtn-unacknowledged')
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+
+      // Acknowledge clears the alert entirely (rtn-unacknowledged -> cleared)
+      events = []
+      await manager.acknowledgeAlert(alert.id)
+
+      // Should emit 'cleared' but NOT 'unsilenced'
+      expect(events.filter((e) => e.type === 'cleared')).toHaveLength(1)
+      expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
+      expect(manager.getAlert(alert.id)).toBeNull()
+
+      // Silence timer should not fire
+      fakeTimers.advanceTime(10000)
+      expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
+    })
   })
 
   describe('clearStaleFlag', () => {
