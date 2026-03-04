@@ -328,6 +328,7 @@ export interface AlertManagerAPI {
   raiseAlert(
     params: RaiseAlertRequest & { $source: string; source?: Record<string, unknown> }
   ): Promise<Alert>
+  escalateAlert(alertId: string, newPriority: AlertPriority): Promise<Alert>
   clearCondition(alertId: string): Promise<AlertTransitionResult>
   acknowledgeAlert(alertId: string, userId?: string): Promise<AlertTransitionResult>
   silenceAlert(alertId: string, durationMs?: number): Promise<Alert>

@@ -232,6 +232,18 @@ GET /plugins/signalk-alert-manager/alerts/{id}
 POST /plugins/signalk-alert-manager/alerts/{id}/acknowledge
 ```
 
+#### Escalate Alert
+```
+POST /plugins/signalk-alert-manager/alerts/{id}/escalate
+Content-Type: application/json
+
+{
+  "priority": "alarm"
+}
+```
+
+Escalates an alert to a higher priority. De-escalation is rejected (409). If the alert was acknowledged, it is reactivated to demand operator attention at the new priority level.
+
 #### Silence Alert
 ```
 POST /plugins/signalk-alert-manager/alerts/{id}/silence
@@ -282,6 +294,7 @@ Clients subscribe to `alerts.*` paths for real-time updates.
 ```typescript
 interface AlertManagerAPI {
   raiseAlert(alert: RaiseAlertRequest): Promise<Alert>;
+  escalateAlert(alertId: string, newPriority: AlertPriority): Promise<Alert>;
   clearCondition(alertId: string): Promise<void>;
   acknowledgeAlert(alertId: string): Promise<void>;
   silenceAlert(alertId: string, duration?: number): Promise<void>;
