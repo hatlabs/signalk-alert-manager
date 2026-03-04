@@ -8,6 +8,9 @@
 import type { Delta, Context, Path, Timestamp } from '@signalk/server-api'
 import type { AlertManager, AlertEvent } from '../core/AlertManager.js'
 
+/** Source label attached to deltas published by this plugin. */
+export const OWN_SOURCE_LABEL = 'alert-manager'
+
 export interface DeltaPublisherDeps {
   alertManager: AlertManager
   handleMessage: (pluginId: string, delta: Partial<Delta>) => void
@@ -49,7 +52,7 @@ export class DeltaPublisher {
         context: 'vessels.self' as Context,
         updates: [
           {
-            source: { label: 'alert-manager' },
+            source: { label: OWN_SOURCE_LABEL },
             timestamp: new Date().toISOString() as Timestamp,
             values: [
               {

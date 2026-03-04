@@ -12,6 +12,7 @@ import { AlertManager, type AlertManagerConfig } from './core/AlertManager.js'
 import { AlertStore } from './store/AlertStore.js'
 import { HistoryStore } from './store/HistoryStore.js'
 import { NotificationTransformer } from './integration/NotificationTransformer.js'
+import { AlertDeltaTransformer } from './integration/AlertDeltaTransformer.js'
 import { DeltaPublisher } from './integration/DeltaPublisher.js'
 import { registerRoutes } from './api/routes.js'
 import openApi from './api/openApi.json' with { type: 'json' }
@@ -185,6 +186,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
   let restartCallback: ((newConfiguration: object) => void) | undefined
   let manager: AlertManager | undefined
   let transformer: NotificationTransformer | undefined
+  let alertDeltaTransformer: AlertDeltaTransformer | undefined
   let publisher: DeltaPublisher | undefined
   let alertStore: AlertStore | undefined
   let historyStore: HistoryStore | undefined
@@ -250,6 +252,18 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
         xformer.start()
         transformer = xformer
 
+        const alertXformer = new AlertDeltaTransformer({
+          alertManager: mgr,
+          registerDeltaInputHandler: (handler) => {
+            app.registerDeltaInputHandler(handler)
+          },
+          debug: (msg, ...args) => {
+            app.debug(msg, ...args)
+          }
+        })
+        alertXformer.start()
+        alertDeltaTransformer = alertXformer
+
         const pub = new DeltaPublisher({
           alertManager: mgr,
           handleMessage: (id, delta) => {
@@ -266,6 +280,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!started) {
           xformer.stop()
+          alertXformer.stop()
           pub.stop()
           mgr.stop()
           return
@@ -306,6 +321,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       restartCallback = undefined
 
       transformer?.stop()
+      alertDeltaTransformer?.stop()
       publisher?.stop()
       manager?.stop()
       delete app.alertManager
@@ -317,6 +333,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       historyStore = undefined
       manager = undefined
       transformer = undefined
+      alertDeltaTransformer = undefined
       publisher = undefined
       readyPromise = undefined
     },

@@ -193,7 +193,11 @@ export class NotificationTransformer {
     }
 
     this.pathToAlertId.delete(path)
-    await this.deps.alertManager.clearCondition(alertId)
+    try {
+      await this.deps.alertManager.clearCondition(alertId)
+    } catch {
+      // Alert may have been cleared via another path (REST API, delta, etc.)
+    }
   }
 
   /** Remove an alert ID from the path map when cleared externally. */
