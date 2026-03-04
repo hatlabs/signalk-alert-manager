@@ -334,17 +334,33 @@ Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.
 
 Lifecycle fields (`id`, `state`, `silenced`, timestamps, etc.) are ignored — the AlertManager is authoritative for those.
 
+Deltas with missing or invalid `priority` (not one of the four levels) or missing `message` are silently ignored. Check server debug logs (`signalk-alert-manager`) for diagnostics.
+
 **Clear an alert condition** (two equivalent forms):
 
 ```json
-{ "path": "alerts.propulsion.main.coolantTemperature", "value": null }
+{
+  "updates": [{
+    "values": [{
+      "path": "alerts.propulsion.main.coolantTemperature",
+      "value": null
+    }]
+  }]
+}
 ```
 
 ```json
-{ "path": "alerts.propulsion.main.coolantTemperature", "value": { "state": "normal" } }
+{
+  "updates": [{
+    "values": [{
+      "path": "alerts.propulsion.main.coolantTemperature",
+      "value": { "state": "normal" }
+    }]
+  }]
+}
 ```
 
-**Update behavior:** If a delta arrives for a path that already has an active alert with the same priority and message, it acts as a heartbeat (refreshes source liveness). If priority or message changed, the alert is re-raised with the new values.
+**Update behavior:** If a delta arrives for a path that already has an active alert with the same priority and message, it acts as a heartbeat — refreshing source liveness for all alerts from that `$source`, not just the one at the delta path. If priority or message changed, the alert is re-raised with the new values (returning it to unacknowledged state if it had been acknowledged).
 
 Deltas published by the alert manager's own delta publisher (source label `alert-manager`) are ignored to prevent feedback loops.
 
