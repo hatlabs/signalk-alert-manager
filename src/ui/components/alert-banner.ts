@@ -54,10 +54,10 @@ export class AlertBanner extends LitElement {
       @keyframes bar-pulse {
         0%,
         100% {
-          box-shadow: inset 0 0 0 0 var(--priority-color, #666);
+          opacity: 1;
         }
         50% {
-          box-shadow: inset 0 0 8px 3px var(--priority-color, #666);
+          opacity: 0.2;
         }
       }
 
