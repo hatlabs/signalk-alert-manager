@@ -236,8 +236,11 @@ export class AlertManager extends EventEmitter {
     // Start escalation timer for warnings
     this.escalationTimer.startTimer(alert.id, alert.priority)
 
-    // Log history
-    this.logHistory('raise', alert, { newState: alert.state })
+    // Log history (include alert snapshot for history view)
+    this.logHistory('raise', alert, {
+      newState: alert.state,
+      details: { message: alert.message, priority: alert.priority, category: alert.category }
+    })
 
     // Emit event
     this.emitEvent('raised', alert)
@@ -264,7 +267,8 @@ export class AlertManager extends EventEmitter {
       this.logHistory('clear', alert, {
         userId,
         previousState: result.previousState,
-        newState: 'normal'
+        newState: 'normal',
+        details: { message: alert.message, priority: alert.priority, category: alert.category }
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -453,7 +457,8 @@ export class AlertManager extends EventEmitter {
       await this.removeAlert(alertId, alert)
       this.logHistory('clear', alert, {
         previousState: result.previousState,
-        newState: 'normal'
+        newState: 'normal',
+        details: { message: alert.message, priority: alert.priority, category: alert.category }
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -463,7 +468,12 @@ export class AlertManager extends EventEmitter {
       }
       this.logHistory('clear', result.alert, {
         previousState: result.previousState,
-        newState: result.alert.state
+        newState: result.alert.state,
+        details: {
+          message: result.alert.message,
+          priority: result.alert.priority,
+          category: result.alert.category
+        }
       })
       this.emitEvent('updated', result.alert, result.previousState)
     }
@@ -688,7 +698,12 @@ export class AlertManager extends EventEmitter {
 
       this.logHistory('raise', updated, {
         previousState: reactivation.previousState,
-        newState: updated.state
+        newState: updated.state,
+        details: {
+          message: updated.message,
+          priority: updated.priority,
+          category: updated.category
+        }
       })
       this.emitEvent('raised', updated, reactivation.previousState)
     } else {

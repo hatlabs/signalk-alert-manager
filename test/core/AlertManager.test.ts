@@ -1766,12 +1766,18 @@ describe('AlertManager', () => {
         path: 'test.alert',
         $source: 'test-source',
         priority: 'alarm',
-        message: 'Test alert'
+        message: 'Test alert',
+        category: 'engine'
       })
 
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('raise')
       expect(historyStore.entries[0].newState).toBe('unacknowledged')
+      expect(historyStore.entries[0].details).toEqual({
+        message: 'Test alert',
+        priority: 'alarm',
+        category: 'engine'
+      })
     })
 
     it('should log acknowledge event', async () => {
@@ -1797,7 +1803,8 @@ describe('AlertManager', () => {
         path: 'test.alert',
         $source: 'test-source',
         priority: 'alarm',
-        message: 'Test alert'
+        message: 'Test alert',
+        category: 'engine'
       })
       await manager.clearCondition(alert.id)
       historyStore.entries = []
@@ -1807,6 +1814,11 @@ describe('AlertManager', () => {
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
       expect(historyStore.entries[0].newState).toBe('normal')
+      expect(historyStore.entries[0].details).toEqual({
+        message: 'Test alert',
+        priority: 'alarm',
+        category: 'engine'
+      })
     })
 
     it('should log silence event', async () => {
@@ -1846,7 +1858,8 @@ describe('AlertManager', () => {
         path: 'test.alert',
         $source: 'test-source',
         priority: 'alarm',
-        message: 'Test alert'
+        message: 'Test alert',
+        category: 'engine'
       })
       await manager.acknowledgeAlert(alert.id)
       historyStore.entries = []
@@ -1856,6 +1869,11 @@ describe('AlertManager', () => {
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
       expect(historyStore.entries[0].newState).toBe('normal')
+      expect(historyStore.entries[0].details).toEqual({
+        message: 'Test alert',
+        priority: 'alarm',
+        category: 'engine'
+      })
     })
 
     it('should log clear event on clearCondition (RTN transition)', async () => {
@@ -1863,7 +1881,8 @@ describe('AlertManager', () => {
         path: 'test.alert',
         $source: 'test-source',
         priority: 'alarm',
-        message: 'Test alert'
+        message: 'Test alert',
+        category: 'engine'
       })
       historyStore.entries = []
 
@@ -1872,6 +1891,11 @@ describe('AlertManager', () => {
       expect(historyStore.entries).toHaveLength(1)
       expect(historyStore.entries[0].eventType).toBe('clear')
       expect(historyStore.entries[0].newState).toBe('rtn-unacknowledged')
+      expect(historyStore.entries[0].details).toEqual({
+        message: 'Test alert',
+        priority: 'alarm',
+        category: 'engine'
+      })
     })
 
     it('should log escalate event', async () => {
