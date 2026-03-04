@@ -41,11 +41,12 @@ describe('OpenAPI specification', () => {
     ['post', '/alerts/silence-all'],
     ['get', '/alerts/{id}'],
     ['post', '/alerts/{id}/acknowledge'],
+    ['post', '/alerts/{id}/escalate'],
     ['post', '/alerts/{id}/silence'],
     ['put', '/alerts/{id}/condition']
   ]
 
-  it('should document all 8 endpoints', () => {
+  it('should document all 9 endpoints', () => {
     const paths = openApi.paths as Record<string, Record<string, unknown>>
     const documented: [string, string][] = []
 

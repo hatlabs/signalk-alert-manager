@@ -257,6 +257,62 @@
         }
       }
     },
+    "/alerts/{id}/escalate": {
+      "post": {
+        "summary": "Escalate alert priority",
+        "description": "Escalate an alert to a higher priority. Only escalation (raising priority) is supported; de-escalation is rejected. If the alert was acknowledged, it is reactivated to demand operator attention at the new priority.",
+        "operationId": "escalateAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Alert UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["priority"],
+                "properties": {
+                  "priority": {
+                    "$ref": "#/components/schemas/AlertPriority",
+                    "description": "The new priority level. Must be higher than the current priority."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The escalated alert.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Alert" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Priority is not higher than current (de-escalation or same priority rejected).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
     "/alerts/{id}/silence": {
       "post": {
         "summary": "Silence alert",

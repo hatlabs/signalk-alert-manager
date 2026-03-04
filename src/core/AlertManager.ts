@@ -307,16 +307,33 @@ export class AlertManager extends EventEmitter {
     // Cancel any existing escalation timer
     this.escalationTimer.cancelTimer(alertId)
 
-    const updated: Alert = {
+    const priorityUpdated: Alert = {
       ...alert,
       priority: newPriority,
       lastSourceUpdate: new Date().toISOString()
     }
 
+    // Reactivate acknowledged/rtn-unacknowledged alerts so the operator
+    // is re-alerted at the new (higher) priority.
+    const reactivation = this.stateMachine.reactivate(priorityUpdated)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
+    let updated = reactivation.alert!
+
+    // Clear silence on escalation: a higher priority demands operator attention.
+    // reactivate() handles this for acknowledged/rtn-unacknowledged, but not
+    // for unacknowledged+silenced alerts.
+    if (updated.silenced) {
+      updated = { ...updated, silenced: false, silencedUntil: undefined }
+    }
+    this.cancelSilenceExpirationTimer(alertId)
+
     this.alerts.set(alertId, updated)
     if (this.store) {
       await this.store.update(updated)
     }
+
+    // Start escalation timer for the new priority level (e.g. caution->warning)
+    this.escalationTimer.startTimer(alertId, newPriority)
 
     this.logHistory('escalate', updated, {
       previousPriority,

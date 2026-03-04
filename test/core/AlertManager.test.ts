@@ -1280,6 +1280,62 @@ describe('AlertManager', () => {
       expect(events[0].type).toBe('escalated')
       expect(events[0].alert.priority).toBe('alarm')
     })
+
+    it('should reactivate acknowledged alert on escalation', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      await manager.acknowledgeAlert(alert.id)
+      const acked = manager.getAlert(alert.id)
+      expect(acked?.state).toBe('acknowledged')
+
+      const updated = await manager.escalateAlert(alert.id, 'alarm')
+      expect(updated.state).toBe('unacknowledged')
+      expect(updated.priority).toBe('alarm')
+    })
+
+    it('should clear silence when escalating a silenced alert', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      await manager.silenceAlert(alert.id)
+      const silenced = manager.getAlert(alert.id)
+      expect(silenced?.silenced).toBe(true)
+
+      const updated = await manager.escalateAlert(alert.id, 'alarm')
+      expect(updated.silenced).toBe(false)
+      expect(updated.silencedUntil).toBeUndefined()
+      expect(updated.priority).toBe('alarm')
+    })
+
+    it('should start escalation timer when escalating caution to warning', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'caution',
+        message: 'Test alert'
+      })
+
+      // Caution does not start an escalation timer
+      expect(fakeTimers.getPendingCount()).toBe(0)
+
+      await manager.escalateAlert(alert.id, 'warning')
+
+      // Warning should start an escalation timer
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      // Advance time to trigger escalation to alarm
+      fakeTimers.advanceTime(300 * 1000)
+      expect(manager.getAlert(alert.id)?.priority).toBe('alarm')
+    })
   })
 
   describe('escalation persistence', () => {
