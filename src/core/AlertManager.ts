@@ -284,6 +284,50 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * Escalate an alert to a higher priority.
+   *
+   * Only escalation (raising priority) is supported — de-escalation is
+   * intentionally not allowed. If the condition has improved, the source
+   * should clear and re-raise at the lower priority instead.
+   */
+  async escalateAlert(alertId: string, newPriority: AlertPriority): Promise<Alert> {
+    const alert = this.alerts.get(alertId)
+    if (!alert) {
+      throw new Error('Alert not found')
+    }
+
+    if (PRIORITY_ORDER[newPriority] <= PRIORITY_ORDER[alert.priority]) {
+      throw new Error(
+        `Cannot escalate from ${alert.priority} to ${newPriority}: new priority must be higher`
+      )
+    }
+
+    const previousPriority = alert.priority
+
+    // Cancel any existing escalation timer
+    this.escalationTimer.cancelTimer(alertId)
+
+    const updated: Alert = {
+      ...alert,
+      priority: newPriority,
+      lastSourceUpdate: new Date().toISOString()
+    }
+
+    this.alerts.set(alertId, updated)
+    if (this.store) {
+      await this.store.update(updated)
+    }
+
+    this.logHistory('escalate', updated, {
+      previousPriority,
+      newPriority
+    })
+    this.emitEvent('escalated', updated, alert.state)
+
+    return updated
+  }
+
+  /**
    * Silence an alert.
    *
    * @param alertId - The alert ID to silence

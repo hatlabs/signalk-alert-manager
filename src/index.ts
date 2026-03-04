@@ -273,6 +273,7 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
 
         const api: AlertManagerAPI = {
           raiseAlert: (params) => mgr.raiseAlert(params),
+          escalateAlert: (alertId, newPriority) => mgr.escalateAlert(alertId, newPriority),
           clearCondition: (alertId) => mgr.clearCondition(alertId),
           acknowledgeAlert: (alertId, userId) => mgr.acknowledgeAlert(alertId, userId),
           silenceAlert: (alertId, durationMs) => mgr.silenceAlert(alertId, durationMs),

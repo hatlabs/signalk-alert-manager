@@ -1206,6 +1206,82 @@ describe('AlertManager', () => {
     })
   })
 
+  describe('explicit escalateAlert', () => {
+    it('should escalate from warning to alarm', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      const updated = await manager.escalateAlert(alert.id, 'alarm')
+      expect(updated.id).toBe(alert.id)
+      expect(updated.priority).toBe('alarm')
+    })
+
+    it('should reject escalation to same priority', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await expect(manager.escalateAlert(alert.id, 'alarm')).rejects.toThrow('Cannot escalate')
+    })
+
+    it('should reject de-escalation', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      await expect(manager.escalateAlert(alert.id, 'warning')).rejects.toThrow('Cannot escalate')
+    })
+
+    it('should throw for non-existent alert', async () => {
+      await expect(manager.escalateAlert('non-existent', 'alarm')).rejects.toThrow(
+        'Alert not found'
+      )
+    })
+
+    it('should cancel escalation timer on explicit escalation', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      expect(fakeTimers.getPendingCount()).toBe(1)
+
+      await manager.escalateAlert(alert.id, 'alarm')
+
+      expect(fakeTimers.getPendingCount()).toBe(0)
+    })
+
+    it('should emit escalated event', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test alert'
+      })
+
+      const events: AlertEvent[] = []
+      manager.on('alert', (event: AlertEvent) => events.push(event))
+
+      await manager.escalateAlert(alert.id, 'alarm')
+
+      expect(events).toHaveLength(1)
+      expect(events[0].type).toBe('escalated')
+      expect(events[0].alert.priority).toBe('alarm')
+    })
+  })
+
   describe('escalation persistence', () => {
     let store: MockAlertStore
 

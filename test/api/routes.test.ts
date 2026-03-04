@@ -500,6 +500,68 @@ describe('REST API Routes', () => {
   })
 
   // =========================================================================
+  // POST /alerts/:id/escalate
+  // =========================================================================
+
+  describe('POST /alerts/:id/escalate', () => {
+    it('should escalate alert priority', async () => {
+      const alert = await raiseTestAlert(ctx, { priority: 'warning' })
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: 'alarm' })
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as Alert
+      expect(body.priority).toBe('alarm')
+      expect(body.id).toBe(alert.id)
+    })
+
+    it('should return 409 for same or lower priority', async () => {
+      const alert = await raiseTestAlert(ctx, { priority: 'alarm' })
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: 'warning' })
+      })
+      expect(res.status).toBe(409)
+    })
+
+    it('should return 400 for missing priority', async () => {
+      const alert = await raiseTestAlert(ctx)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('should return 400 for invalid priority', async () => {
+      const alert = await raiseTestAlert(ctx)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: 'critical' })
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('should return 404 for non-existent alert', async () => {
+      const res = await fetch(`${ctx.baseUrl}/alerts/non-existent/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: 'alarm' })
+      })
+      expect(res.status).toBe(404)
+    })
+  })
+
+  // =========================================================================
   // POST /alerts/:id/silence
   // =========================================================================
 

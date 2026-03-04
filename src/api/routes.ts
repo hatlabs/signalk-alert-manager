@@ -322,6 +322,49 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       })
   })
 
+  router.post('/alerts/:id/escalate', (req: Request, res: Response) => {
+    const manager = deps.getAlertManager()
+    if (!manager) {
+      res.status(503).json({ error: 'Alert manager not ready' })
+      return
+    }
+
+    const body = req.body as Record<string, unknown>
+
+    if (!body.priority) {
+      res.status(400).json({ error: 'priority is required' })
+      return
+    }
+    if (
+      typeof body.priority !== 'string' ||
+      !VALID_PRIORITIES.includes(body.priority as AlertPriority)
+    ) {
+      res.status(400).json({
+        error: `Invalid priority: ${typeof body.priority === 'string' ? body.priority : typeof body.priority}. Must be one of: ${VALID_PRIORITIES.join(', ')}`
+      })
+      return
+    }
+
+    manager
+      .escalateAlert(String(req.params.id), body.priority as AlertPriority)
+      .then((alert) => {
+        res.json(alert)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error) {
+          if (err.message === 'Alert not found') {
+            res.status(404).json({ error: 'Alert not found' })
+            return
+          }
+          if (err.message.startsWith('Cannot escalate')) {
+            res.status(409).json({ error: err.message })
+            return
+          }
+        }
+        res.status(500).json({ error: 'Internal server error' })
+      })
+  })
+
   router.post('/alerts/:id/silence', (req: Request, res: Response) => {
     const manager = deps.getAlertManager()
     if (!manager) {
