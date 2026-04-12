@@ -507,15 +507,18 @@ describe('AlertStateMachine', () => {
       expect(result.alert?.condition).toBe(true)
     })
 
-    it('should reset silenced and silencedUntil on reactivation', () => {
+    it('should preserve silencing on reactivation (AlertManager clears it)', () => {
       const alert = makeAlert()
       const acked = assertAlert(stateMachine.acknowledge(alert).alert)
       const silenced = stateMachine.silence(acked, new Date(Date.now() + 30000))
 
       const result = stateMachine.reactivate(silenced)
 
-      expect(result.alert?.silenced).toBe(false)
-      expect(result.alert?.silencedUntil).toBeUndefined()
+      // Silencing is NOT cleared by the state machine — that responsibility
+      // belongs to AlertManager.clearSilencingIfSuperseded(), which also
+      // manages the silence expiration timers.
+      expect(result.alert?.silenced).toBe(true)
+      expect(result.alert?.silencedUntil).toBeDefined()
     })
 
     it('should transition latching acknowledged to unacknowledged', () => {
