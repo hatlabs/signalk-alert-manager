@@ -2255,6 +2255,38 @@ describe('AlertManager', () => {
       expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
     })
 
+    it('should un-silence on idempotent re-raise of unacknowledged alert', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert'
+      })
+
+      // Silence without acknowledging first
+      await manager.silenceAlert(alert.id, 30000)
+      expect(manager.getAlert(alert.id)?.silenced).toBe(true)
+      expect(manager.getAlert(alert.id)?.state).toBe('unacknowledged')
+
+      // Re-raise the same alert (idempotent reactivation)
+      await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'alarm',
+        message: 'Test alert re-raised'
+      })
+
+      const reactivated = manager.getAlert(alert.id)
+      expect(reactivated?.state).toBe('unacknowledged')
+      expect(reactivated?.silenced).toBe(false)
+      expect(reactivated?.silencedUntil).toBeUndefined()
+
+      // Silence timer should not fire (was cancelled)
+      events = []
+      fakeTimers.advanceTime(30000)
+      expect(events.filter((e) => e.type === 'unsilenced')).toHaveLength(0)
+    })
+
     it('should preserve raisedAt on reactivation', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',

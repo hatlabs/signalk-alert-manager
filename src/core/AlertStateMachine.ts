@@ -294,9 +294,13 @@ export class AlertStateMachine {
    * (or again) active. Transitions the alert back to unacknowledged so
    * the operator is re-alerted.
    *
+   * Silencing is NOT cleared here — that responsibility belongs to
+   * AlertManager, which also manages the silence expiration timers.
+   * See AlertManager.clearSilencingIfSuperseded().
+   *
    * Transitions:
-   * - acknowledged → unacknowledged (resets ack fields, silencing)
-   * - rtn-unacknowledged → unacknowledged (resets clearedAt, silencing)
+   * - acknowledged → unacknowledged (resets ack fields)
+   * - rtn-unacknowledged → unacknowledged (resets clearedAt)
    * - unacknowledged → unacknowledged (idempotent, ensures condition=true)
    */
   reactivate(alert: Alert): StateTransitionResult {
@@ -309,9 +313,7 @@ export class AlertStateMachine {
           state: 'unacknowledged',
           condition: true,
           acknowledgedAt: undefined,
-          acknowledgedBy: undefined,
-          silenced: false,
-          silencedUntil: undefined
+          acknowledgedBy: undefined
         },
         cleared: false,
         previousState
@@ -324,9 +326,7 @@ export class AlertStateMachine {
           ...alert,
           state: 'unacknowledged',
           condition: true,
-          clearedAt: undefined,
-          silenced: false,
-          silencedUntil: undefined
+          clearedAt: undefined
         },
         cleared: false,
         previousState

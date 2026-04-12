@@ -260,12 +260,8 @@ export class AlertManager extends EventEmitter {
     const result = this.stateMachine.acknowledge(alert, userId)
 
     this.escalationTimer.cancelTimer(alertId)
-    this.cancelSilenceExpirationTimer(alertId)
-    // Silencing is superseded by acknowledge — clear flags without emitting
-    // a separate 'unsilenced' event, since the 'acknowledged' event already
-    // conveys that the operator has attended to the alert.
-    if (result.alert?.silenced) {
-      result.alert = this.stateMachine.unsilence(result.alert)
+    if (result.alert) {
+      result.alert = this.clearSilencingIfSuperseded(alertId, result.alert)
     }
 
     if (result.cleared) {
@@ -330,15 +326,7 @@ export class AlertManager extends EventEmitter {
     // is re-alerted at the new (higher) priority.
     const reactivation = this.stateMachine.reactivate(priorityUpdated)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
-    let updated = reactivation.alert!
-
-    // Clear silence on escalation: a higher priority demands operator attention.
-    // reactivate() handles this for acknowledged/rtn-unacknowledged, but not
-    // for unacknowledged+silenced alerts.
-    if (updated.silenced) {
-      updated = { ...updated, silenced: false, silencedUntil: undefined }
-    }
-    this.cancelSilenceExpirationTimer(alertId)
+    const updated = this.clearSilencingIfSuperseded(alertId, reactivation.alert!)
 
     this.alerts.set(alertId, updated)
     if (this.store) {
@@ -683,7 +671,7 @@ export class AlertManager extends EventEmitter {
     // Attempt to reactivate (acknowledged/rtn-unacknowledged → unacknowledged)
     const reactivation = this.stateMachine.reactivate(dataUpdated)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
-    const updated = reactivation.alert!
+    const updated = this.clearSilencingIfSuperseded(existing.id, reactivation.alert!)
     const stateChanged = reactivation.previousState !== updated.state
 
     this.alerts.set(existing.id, updated)
@@ -700,8 +688,7 @@ export class AlertManager extends EventEmitter {
     }
 
     if (stateChanged) {
-      // Reactivation: cancel silence timer, restart escalation, log and emit 'raised'
-      this.cancelSilenceExpirationTimer(existing.id)
+      // Reactivation: restart escalation, log and emit 'raised'
       this.escalationTimer.cancelTimer(existing.id)
       this.escalationTimer.startTimer(existing.id, updated.priority)
 
@@ -798,6 +785,27 @@ export class AlertManager extends EventEmitter {
     }
 
     this.emit('alert', event)
+  }
+
+  /**
+   * Clear silencing if the current operation supersedes it.
+   *
+   * Silencing suppresses audio — it is superseded when the operator has
+   * attended to the alert (acknowledge) or when the system demands renewed
+   * attention (reactivation, escalation). This is the single place that
+   * encodes that rule, replacing previously scattered cleanup in
+   * acknowledgeAlert, escalateAlert, and updateExistingAlert.
+   *
+   * Does not emit a separate 'unsilenced' event because the caller's own
+   * event (acknowledged, escalated, raised) already conveys that the
+   * operator's attention has been (re)demanded.
+   */
+  private clearSilencingIfSuperseded(alertId: string, alert: Alert): Alert {
+    if (!alert.silenced) {
+      return alert
+    }
+    this.cancelSilenceExpirationTimer(alertId)
+    return this.stateMachine.unsilence(alert)
   }
 
   /**
