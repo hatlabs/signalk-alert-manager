@@ -15,6 +15,7 @@ import { NotificationTransformer } from './integration/NotificationTransformer.j
 import { AlertDeltaTransformer } from './integration/AlertDeltaTransformer.js'
 import { DeltaPublisher } from './integration/DeltaPublisher.js'
 import { registerRoutes } from './api/routes.js'
+import { registerPutHandlers } from './api/putHandlers.js'
 import openApi from './api/openApi.json' with { type: 'json' }
 
 // Export all types for use by other plugins and clients
@@ -276,6 +277,8 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
         })
         pub.start()
         publisher = pub
+
+        registerPutHandlers(app, { getAlertManager: () => manager })
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!started) {

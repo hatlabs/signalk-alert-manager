@@ -172,6 +172,14 @@ export class MockServerAPI {
     this.deltaInputHandlers.push(handler)
   }
 
+  /**
+   * Register a PUT handler for a Signal K path (no-op in mock).
+   */
+  registerPutHandler(_context: string, _path: string, _callback: unknown, _source?: string): void {
+    // No-op — PUT handler registration is not exercised in unit tests.
+    // See test/api/putHandlers.test.ts for dedicated PUT handler tests.
+  }
+
   // =========================================================================
   // Path Data Access
   // =========================================================================
