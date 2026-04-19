@@ -109,11 +109,20 @@ Each alert is identified by its `path` (with optional `context` for multi-vessel
 
 ### Install
 
-From the Signal K Admin UI Appstore, or manually:
-
 ```bash
 cd ~/.signalk
-npm install signalk-alert-manager
+npm install https://github.com/hatlabs/signalk-alert-manager/tarball/main
+```
+
+Then enable the plugin in the Signal K Admin UI under Server → Plugin Config.
+
+### Install on HaLOS
+
+On HaLOS, Signal K runs in a Docker container. Install the plugin and restart the service:
+
+```bash
+sudo docker exec signalk-server npm install https://github.com/hatlabs/signalk-alert-manager/tarball/main --prefix /home/node/.signalk
+sudo systemctl restart marine-signalk-server-container.service
 ```
 
 Then enable the plugin in the Signal K Admin UI under Server → Plugin Config.
