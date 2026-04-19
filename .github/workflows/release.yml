@@ -1,0 +1,46 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  npm-publish:
+    runs-on: ubuntu-latest
+    # Only publish stable releases, not pre-releases
+    if: ${{ github.event.release.prerelease == false }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm with trusted publishing support
+        run: npm install -g npm@latest
+
+      - name: Check if version exists on npm
+        id: check
+        run: |
+          VERSION=$(cat VERSION)
+          if npm view signalk-alert-manager@"$VERSION" version 2>/dev/null; then
+            echo "Version $VERSION already published to npm, skipping"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version $VERSION not found on npm, will publish"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and publish to npm
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          npm ci --ignore-scripts --legacy-peer-deps
+          npm run build
+          npm run build:ui
+          npm publish --provenance --access public
