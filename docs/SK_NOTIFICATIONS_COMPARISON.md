@@ -112,7 +112,7 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 
 | Feature | Notifications API | alert-manager |
 |---------|------------------|---------------|
-| Raise via API | Yes (PR #2560 adds full raise/update) | Yes (via REST API and delta) |
+| Raise via API | Yes (full raise/update, PR #2560) | Yes (via REST API and delta) |
 | Raise via delta | Yes (external notifications) | Yes (primary ingestion path) |
 | Acknowledge | Yes (sets boolean) | Yes (state transition) |
 | Silence | Yes (removes 'sound' from method array) | Yes (orthogonal boolean + timeout) |
@@ -120,19 +120,21 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 | Silence all | Yes | Yes |
 | Acknowledge all | Yes | No (per spec — ack requires individual attention) |
 | Clear | Yes (API-originated only) | Yes (condition-driven, not operator-driven) |
-| Update/escalate | Yes (PR #2560 adds update) | Yes (automatic W→A escalation) |
+| Update/escalate | Yes (update, PR #2560) | Yes (automatic W→A escalation) |
 | MOB alarm | Yes (dedicated endpoint) | No (would be a specific alert definition) |
 | Persistence | No (in-memory only) | Yes (JSON file store, survives restart) |
 | History | No | Yes (event history with configurable retention) |
 | Source liveness | No | Yes (stale detection when source goes offline) |
 | Web UI | No (API only, consumers build their own) | Yes (Lit-based alert panel) |
-| Plugin interface | Yes (PR #2560 expands it) | Yes (Signal K plugin API) |
+| Plugin interface | Yes (expanded in PR #2560) | Yes (Signal K plugin API) |
 
 ## 5. Implementation Status
 
 ### Signal K Notifications API (in signalk-server)
 
-**Released (merged to master):**
+**Merged to master:**
+
+Core handler and identification (PR #2265):
 - Notification identification (UUID assignment)
 - Status tracking (silenced/acknowledged booleans)
 - Silence and acknowledge actions
@@ -142,17 +144,17 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 - Method array management (visual/sound)
 - OpenAPI documentation
 
-**PR #2560 (open, not yet merged):**
+Notification actions (PR #2560):
 - Raise notifications via API
 - Update notification state/message
 - Clear notifications
 - MOB alarm
 - List/get operations
-- Plugin interface (getById, list, raise, update, clear, mob)
+- Plugin interface (getById, getPath, list, raise, update, clear, mob)
 - `data` field for arbitrary payload
 - `createdAt` and `position` fields
 - Stronger type safety (branded NotificationId)
-- AlarmRaiseOptions / AlarmUpdateOptions types
+- AlarmRaiseOptions / AlarmUpdateOptions / AlarmProperties types
 
 **Not implemented:**
 - State machine / lifecycle enforcement
