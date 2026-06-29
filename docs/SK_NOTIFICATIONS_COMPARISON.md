@@ -23,14 +23,16 @@ Lifecycle state is tracked separately via `AlarmStatus` boolean flags:
 { silenced: boolean, acknowledged: boolean, canSilence: boolean, canAcknowledge: boolean, canClear: boolean }
 ```
 
-The composite state is `(ALARM_STATE, silenced, acknowledged)`, and there is an **implicit state machine** with guard-enforced transitions in the `Alarm` class:
+The composite state is `(ALARM_STATE, silenced, acknowledged)`, and there is an **implicit state machine** with guard-enforced transitions across the `Alarm` and `NotificationManager` classes:
 
 - `silence()` — throws if `!canSilence`, already silenced/acknowledged, or emergency. Sets `silenced = true`, removes `sound` from method.
 - `acknowledge()` — throws if `!canAcknowledge` or already acknowledged. Sets `acknowledged = true`, adjusts method (emergency keeps visual; others get `[]`).
 - `clear()` — throws if `!canClear`. Resets to `state = normal`, `silenced = false`, `acknowledged = false`.
-- `update()` (PR #2560) — when state (severity) changes, resets `silenced = false` and `acknowledged = false` (reactivation behavior).
+- `update()` — when the severity changes, resets `silenced = false` and `acknowledged = false` (reactivation), so a re-fired alarm demands a fresh operator response.
+- Inbound deltas reactivate too: when an external notification transitions from `normal` to an active state, `syncFromNotificationUpdate()` clears `silenced`/`acknowledged`.
+- Returned-to-normal notifications are reaped: a background timer deletes any notification that has stayed `normal` for one cleanup interval (~60 s).
 
-So the Notifications API does enforce transition rules — it's not just flag toggling. But the state machine is not formalized as named lifecycle states with an explicit transition table; it's encoded in guard clauses across the action methods.
+So the Notifications API does enforce transition rules and does manage a lifecycle — it's not just flag toggling. What it lacks is a *formalized* model: there are no named lifecycle states or an explicit transition table, only guard clauses across the action methods.
 
 ### signalk-alert-manager
 
@@ -95,7 +97,7 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 |------------|------------------|---------------|
 | 4-state model (A/B/C/D) | Not implemented | Implemented (normal/unacknowledged/acknowledged/rtn-unacknowledged) |
 | Latching alerts | Not supported | Supported |
-| State transitions enforced | No — actions are flag toggles | Yes — invalid transitions rejected |
+| State transitions enforced | Partial — `silence`/`acknowledge`/`clear` enforce guards and throw on invalid transitions, but there is no named-state model | Yes — formal state machine; invalid inputs resolve to no-ops |
 | Shelving/suppression | Not implemented | Not implemented (deferred per spec) |
 
 ### NMEA 2000 (PGN 126983)
@@ -112,6 +114,7 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 
 | Feature | Notifications API | alert-manager |
 |---------|------------------|---------------|
+| Identity | UUID per notification; UUID-addressed REST API (`/notifications/{id}`) | UUID per alert; published by origin path (`alerts.{path}`) |
 | Raise via API | Yes (full raise/update, PR #2560) | Yes (via REST API and delta) |
 | Raise via delta | Yes (external notifications) | Yes (primary ingestion path) |
 | Acknowledge | Yes (sets boolean) | Yes (state transition) |
@@ -120,9 +123,9 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 | Silence all | Yes | Yes |
 | Acknowledge all | Yes | No (per spec — ack requires individual attention) |
 | Clear | Yes (API-originated only) | Yes (condition-driven, not operator-driven) |
-| Update/escalate | Yes (update, PR #2560) | Yes (automatic W→A escalation) |
+| Update/escalate | Manual only — `update` re-raises and resets ack/silence on severity change; no automatic escalation | Yes (automatic W→A escalation) |
 | MOB alarm | Yes (dedicated endpoint) | No (would be a specific alert definition) |
-| Persistence | No (in-memory only) | Yes (JSON file store, survives restart) |
+| Persistence | No (in-memory only) | Yes (SQLite store, survives restart) |
 | History | No | Yes (event history with configurable retention) |
 | Source liveness | No | Yes (stale detection when source goes offline) |
 | Web UI | No (API only, consumers build their own) | Yes (Lit-based alert panel) |
@@ -157,12 +160,12 @@ Notification actions (PR #2560):
 - AlarmRaiseOptions / AlarmUpdateOptions / AlarmProperties types
 
 **Not implemented:**
-- State machine / lifecycle enforcement
+- Formal named-state lifecycle model (uses severity × status flags with guarded actions instead)
 - Silence timeout
 - Escalation
 - Persistence
 - History
-- Return-to-normal state
+- Return-to-normal *unacknowledged* state (no ack-pending step after a condition clears)
 - Latching
 - Source liveness tracking
 
@@ -174,13 +177,13 @@ Notification actions (PR #2560):
 - Silence with configurable timeout (per priority)
 - Automatic escalation (W→A)
 - Latching alerts
-- Persistence (JSON file store)
+- Persistence (SQLite store)
 - Alert history with retention
 - Source liveness and stale detection
 - REST API (raise, acknowledge, silence, clear, query)
-- Delta publishing (Signal K integration)
+- Alert state published as `alerts.*` Signal K deltas (own model, not `notifications.*`)
 - Lit-based web UI (alert list, detail, banner, history)
-- Notification transformer (alert → Signal K v1 notification format)
+- Notification ingestion (incoming `notifications.*` deltas → managed alerts)
 
 **Not implemented:**
 - N2K export (mapping documented, code not written)
@@ -194,19 +197,19 @@ The two systems operate at different layers:
 
 - **Notifications API** is part of the Signal K server core. It manages the wire format — how notifications appear in deltas, how they're identified, what actions can be taken via HTTP. It's a **transport and action layer**.
 
-- **signalk-alert-manager** is a plugin that implements the **domain logic** — the alert lifecycle state machine, escalation rules, timing constraints, persistence. It consumes and produces Signal K deltas, and includes a `NotificationTransformer` that converts its alert model back into the Signal K notification format for interoperability.
+- **signalk-alert-manager** is a plugin that implements the **domain logic** — the alert lifecycle state machine, escalation rules, timing constraints, persistence. It ingests incoming `notifications.*` deltas (its `NotificationTransformer` maps them to managed alerts) and publishes alert state on its own `alerts.*` paths.
 
-They are complementary, not competing. The Notifications API provides the protocol-level infrastructure; the alert-manager provides the domain-level intelligence. The alert-manager's `NotificationTransformer` already bridges the gap by emitting standard Signal K notifications from its richer alert model.
+They are complementary, not competing. The Notifications API provides the protocol-level infrastructure; the alert-manager provides the domain-level intelligence. The bridge between them is one-way: the alert-manager *ingests* notifications as one alert source, but it does not write back into `notifications.*` — its output lives in a separate `alerts.*` tree.
 
 ## 7. Compatibility Considerations
 
 ### What works today
 
-The alert-manager subscribes to Signal K deltas (including N2K-originated notifications) and maps them into its state machine. It publishes state changes back as Signal K notifications via `NotificationTransformer`. The Notifications API can then process these like any other notification.
+The alert-manager subscribes to Signal K deltas (including N2K-originated notifications) and maps them into its state machine via `NotificationTransformer`. Ingestion is non-destructive — it registers a delta input handler and does not rewrite `notifications.*`. It publishes alert state on its own `alerts.*` paths, which the Notifications API ignores.
 
 ### Potential friction
 
-1. **Dual management**: If both systems process the same notification, they may fight over the `method` array and `status` flags. The Notifications API rewrites `method` on every delta; the alert-manager tracks its own state independently. This is manageable because the alert-manager publishes via `handleMessage` and the Notifications API processes inbound deltas — but the interaction needs care.
+1. **Double handling**: Both systems consume the same inbound `notifications.*` deltas independently — the Notifications API stamps each with an `id`/`status` and re-emits it, while the alert-manager maps it into a managed alert. There is no write conflict (the plugin never writes `notifications.*`; it emits `alerts.*`), but a single device notification then surfaces in two places — under `notifications.*` and under `alerts.*` — and consumers should know which they're reading.
 
 2. **Vocabulary mismatch**: The alert-manager uses `state` for lifecycle and `priority` for severity. The Notifications API uses `state` for severity and `status` for lifecycle flags. Any bridging code must translate carefully.
 

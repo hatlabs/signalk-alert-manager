@@ -4,29 +4,31 @@ Signal K server plugin for centralized alert management following maritime and p
 
 ## Why This Plugin?
 
-Signal K has no built-in alert management. Maritime safety standards (IMO MSC.302(87), IEC 62682) require features that simply don't exist in the server: alert lifecycle tracking, operator acknowledgment, persistence across restarts, silencing, escalation, and audit trails.
+Signal K's server includes a Notifications API that assigns each notification an ID and can raise, acknowledge, and silence it. What it doesn't provide is the alert management maritime safety standards (IMO MSC.302(87), IEC 62682) require: a formal lifecycle state machine with return-to-normal handling, persistence across restarts, automatic escalation, source-liveness tracking, and an audit trail.
 
 signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, incoming `alerts.*` deltas from devices, or automatically from existing `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
 
 ### Relationship to Signal K Notifications
 
-Signal K's `notifications.*` paths provide a simple signaling layer — a value at a path with a state and message. They were not designed for alert management and lack lifecycle, acknowledgment, persistence, and history. The alert manager is a separate system that can *ingest* notifications as one alert source among others, not a replacement or extension of the notification mechanism.
+Signal K's `notifications.*` paths provide a signaling layer — a value at a path with a state and message — and the server's Notifications API layers basic lifecycle on top: a per-notification ID, acknowledge and silence actions, and reactivation when severity changes. It still lacks the standards-based alert management this plugin targets: a formal IEC 62682 state machine with return-to-normal, persistence, escalation, history, and source-liveness tracking. The alert manager is a separate system that can *ingest* notifications as one alert source among others, not a replacement or extension of the notification mechanism.
 
 The comparison below summarizes the differences:
 
 | Capability | Signal K Notifications | Alert Manager |
 |---|---|---|
-| Data model | Key-value at `notifications.*` paths | Alert objects with unique IDs, full metadata |
-| States | `normal`, `nominal`, `alert`, `warn`, `alarm`, `emergency` | IEC 62682: unacknowledged, acknowledged, return-to-normal |
-| Lifecycle | None — value replaced on update | Raise → acknowledge → clear with full tracking |
-| Acknowledgment | Not supported | Per-alert, records who and when |
-| Silencing | Not supported | Time-limited, configurable per priority |
+| Data model | `notifications.*` values, each with a per-notification ID and silence/ack status | Alert objects with unique IDs, full metadata |
+| States | `normal`, `nominal`, `alert`, `warn`, `alarm`, `emergency` (severity) | IEC 62682 lifecycle: unacknowledged, acknowledged, return-to-normal |
+| Lifecycle | Basic — acknowledge, silence, clear, and reactivation on severity change | Full IEC 62682 state machine with return-to-normal tracking |
+| Acknowledgment | Supported (status flag, no operator identity) | Per-alert, records who and when |
+| Silencing | Supported (no timeout) | Time-limited, configurable per priority |
 | Escalation | Not supported | Automatic priority promotion on timeout |
 | Persistence | In-memory only (lost on restart) | SQLite — survives restarts |
 | History | None | Full audit trail with query API |
 | Source tracking | `$source` field | Source liveness monitoring, stale detection |
-| Priority model | Implicit in state string | Four explicit levels (IMO model) with defined behaviors |
-| Creation | Zone triggers or manual deltas | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
+| Priority model | Same as the severity `state` — one dimension, no separate axis | Separate axis from lifecycle state, with defined per-level behavior |
+| Creation | Zone triggers, manual deltas, or the Notifications API (REST/plugin) | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
+
+> **Priority model** here means how urgency is *represented*, not whether it exists. Notifications fold urgency into the `state` value, so the severity levels (`alert`/`warn`/`alarm`/`emergency`) and the field that changes over the notification's life are one and the same. The alert manager keeps priority as a separate axis from lifecycle state — an alert holds its priority while moving through the lifecycle — and attaches behavior to each level (audible pattern, acknowledgment requirement, escalation eligibility). See [Priority Levels](#priority-levels).
 
 ## Alert Model
 
