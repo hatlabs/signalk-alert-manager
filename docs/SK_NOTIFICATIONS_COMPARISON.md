@@ -36,7 +36,7 @@ So the Notifications API does enforce transition rules and does manage a lifecyc
 
 ### signalk-alert-manager
 
-Uses a formal IEC 62682-based state machine with four lifecycle states orthogonal to priority:
+Uses a formal four-state alert lifecycle (the IEC 62923-1 marine bridge alert management model; equivalently IEC 62682 states A–D) orthogonal to priority:
 
 | State | Condition Active | Acknowledged |
 |-------|-----------------|--------------|
@@ -58,7 +58,7 @@ State transitions are explicit and enforced:
 
 Both systems have a state model, but they differ in what they formalize:
 
-1. **Vocabulary inversion**: The Notifications API uses `state` for severity and `status` for lifecycle. The alert-manager uses `state` for lifecycle and `priority` for severity. The alert-manager aligns with IEC 62682/IMO terminology.
+1. **Vocabulary inversion**: The Notifications API uses `state` for severity and `status` for lifecycle. The alert-manager uses `state` for lifecycle and `priority` for severity. The alert-manager aligns with IMO / IEC 62923 marine terminology.
 
 2. **Lifecycle granularity**: The alert-manager has an explicit rtn-unacknowledged state (condition cleared, ack pending). The Notifications API has no equivalent — when an external source sends `state: normal`, the notification goes directly to normal with no intermediate "you still need to acknowledge this" state.
 
@@ -68,15 +68,15 @@ Both systems have a state model, but they differ in what they formalize:
 
 ## 2. Vocabulary
 
-| Concept | Notifications API | alert-manager | NMEA 2000 | IMO/IEC |
+| Concept | Notifications API | alert-manager | NMEA 2000 | IMO / IEC 62923 |
 |---------|------------------|---------------|-----------|---------|
 | The thing itself | notification / alarm | alert | alert | alert |
 | How bad | `state` (alarm_state) | `priority` | Alert Type | alert category/priority |
-| Lifecycle position | `status` (booleans) | `state` (enum) | Alert State | state (A/B/C/D) |
+| Lifecycle position | `status` (booleans) | `state` (enum) | Alert State | named lifecycle state |
 | Audio suppression | `method` array manipulation | `silenced` boolean | Temporary Silence Status | silence |
 | Operator response | `acknowledged` boolean | `state: acknowledged` | Acknowledge Status | acknowledge |
 
-The Notifications API's use of "state" for severity and "status" for lifecycle is inverted from IMO/IEC usage. The alert-manager aligns with the standards vocabulary.
+The Notifications API's use of "state" for severity and "status" for lifecycle is inverted from IMO / IEC 62923 usage. The alert-manager aligns with the marine standards vocabulary.
 
 ## 3. Standards Compatibility
 
@@ -91,14 +91,16 @@ The Notifications API's use of "state" for severity and "status" for lifecycle i
 | Escalation (W→A) | Not implemented | Yes — configurable timeout, automatic |
 | Emergency cannot be silenced | Yes (enforced) | Yes (shorter silence duration, configurable) |
 
-### IEC 62682
+### IEC 62682 (process industries — borrowed concepts, not a conformance target)
 
-| Requirement | Notifications API | alert-manager |
-|------------|------------------|---------------|
-| 4-state model (A/B/C/D) | Not implemented | Implemented (normal/unacknowledged/acknowledged/rtn-unacknowledged) |
-| Latching alerts | Not supported | Supported |
-| State transitions enforced | Partial — `silence`/`acknowledge`/`clear` enforce guards and throw on invalid transitions, but there is no named-state model | Yes — formal state machine; invalid inputs resolve to no-ops |
-| Shelving/suppression | Not implemented | Not implemented (deferred per spec) |
+IEC 62682 is a process-industry alarm standard. The alert-manager borrows two concepts from it — the return-to-normal-unacknowledged state and latching — each filling a gap the IMO / IEC 62923 marine model leaves. Its process-plant machinery (states E/F/G — shelving, suppressed-by-design, out-of-service — plus rationalization and performance KPIs) is out of scope for recreational use. The comparison below is against those borrowed concepts, not full conformance:
+
+| Concept | Notifications API | alert-manager |
+|---------|------------------|---------------|
+| Return-to-normal unacknowledged | Not modeled | Named state (IEC 62923 implies the behavior; IEC 62682 formalizes it) |
+| Latching | Not supported | Supported (for one-shot events) |
+| State-transition enforcement | Partial — guard-enforced actions, no named-state model | Yes — formal four-state machine |
+| Shelving / suppression (E/F/G) | Not implemented | Out of scope for recreational use (large-plant features) |
 
 ### NMEA 2000 (PGN 126983)
 
@@ -172,7 +174,7 @@ Notification actions (PR #2560):
 ### signalk-alert-manager (plugin)
 
 **Implemented:**
-- Full IEC 62682 state machine (4 states)
+- Full IEC 62923 four-state alert lifecycle
 - Priority levels (4) with distinct behaviors
 - Silence with configurable timeout (per priority)
 - Automatic escalation (W→A)
@@ -188,7 +190,7 @@ Notification actions (PR #2560):
 **Not implemented:**
 - N2K export (mapping documented, code not written)
 - N2K acknowledge-back (PGN 126984 response)
-- Shelving/suppression (IEC 62682 states E/F/G)
+- Shelving / suppression / out-of-service (IEC 62682 states E/F/G — process-plant features, deliberately out of scope)
 - Authorization model (deferred to Signal K auth)
 
 ## 6. Architectural Relationship
