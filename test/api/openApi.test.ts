@@ -85,6 +85,7 @@ describe('OpenAPI specification', () => {
         'silenced',
         'message',
         'raisedAt',
+        'stateChangedAt',
         'sourceOnline',
         'lastSourceUpdate',
         'stale'
@@ -109,6 +110,7 @@ describe('OpenAPI specification', () => {
         'group',
         'data',
         'raisedAt',
+        'stateChangedAt',
         'acknowledgedAt',
         'acknowledgedBy',
         'clearedAt',

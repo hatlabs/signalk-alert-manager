@@ -420,7 +420,7 @@
       "AlertState": {
         "type": "string",
         "enum": ["normal", "unacknowledged", "acknowledged", "rtn-unacknowledged"],
-        "description": "Alert states based on IEC 62682 simplified model."
+        "description": "Alert states based on IEC 62923-1 (marine bridge alert management)."
       },
       "HistoryEventType": {
         "type": "string",
@@ -431,7 +431,7 @@
         "type": "object",
         "required": [
           "id", "path", "$source", "priority", "state", "condition", "latching",
-          "silenced", "message", "raisedAt", "sourceOnline", "lastSourceUpdate", "stale"
+          "silenced", "message", "raisedAt", "stateChangedAt", "sourceOnline", "lastSourceUpdate", "stale"
         ],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
@@ -448,6 +448,7 @@
           "group": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },
           "raisedAt": { "type": "string", "format": "date-time" },
+          "stateChangedAt": { "type": "string", "format": "date-time" },
           "acknowledgedAt": { "type": "string", "format": "date-time" },
           "acknowledgedBy": { "type": "string" },
           "clearedAt": { "type": "string", "format": "date-time" },
