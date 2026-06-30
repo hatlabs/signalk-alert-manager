@@ -83,8 +83,11 @@ export interface Alert {
   raisedAt: string
 
   /**
-   * ISO timestamp of the last lifecycle state change (raise/ack/clear/reactivate);
-   * NOT updated by silence/unsilence. Used for IEC 62923-1 6.4.2.2 list ordering.
+   * ISO timestamp of the last lifecycle state change
+   * (raise/ack/clear/reactivate/escalate). A warning→alarm escalation bumps it,
+   * but a latching alarm whose condition clears does NOT (its state stays
+   * `unacknowledged`), and silence/unsilence never bump it. Used for
+   * IEC 62923-1 6.4.2.2 list ordering.
    */
   stateChangedAt: string
 

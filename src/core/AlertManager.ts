@@ -316,17 +316,24 @@ export class AlertManager extends EventEmitter {
     // Cancel any existing escalation timer
     this.escalationTimer.cancelTimer(alertId)
 
+    const now = new Date().toISOString()
     const priorityUpdated: Alert = {
       ...alert,
       priority: newPriority,
-      lastSourceUpdate: new Date().toISOString()
+      lastSourceUpdate: now
     }
 
     // Reactivate acknowledged/rtn-unacknowledged alerts so the operator
     // is re-alerted at the new (higher) priority.
     const reactivation = this.stateMachine.reactivate(priorityUpdated)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
-    const updated = this.clearSilencingIfSuperseded(alertId, reactivation.alert!)
+    const reactivated = reactivation.alert!
+    // Escalation is itself a state change (IEC 62923-1 6.4.2.2), so the
+    // escalated alert rises within its new priority group.
+    const updated: Alert = {
+      ...this.clearSilencingIfSuperseded(alertId, reactivated),
+      stateChangedAt: now
+    }
 
     this.alerts.set(alertId, updated)
     if (this.store) {
@@ -617,10 +624,12 @@ export class AlertManager extends EventEmitter {
 
     const previousPriority = alert.priority
 
-    // Escalate from warning to alarm
+    // Escalate from warning to alarm. Escalation is itself a state change
+    // (IEC 62923-1 6.4.2.2), so the alarm rises within its priority group.
     const escalated: Alert = {
       ...alert,
-      priority: 'alarm'
+      priority: 'alarm',
+      stateChangedAt: new Date().toISOString()
     }
 
     this.alerts.set(alertId, escalated)

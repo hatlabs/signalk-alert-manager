@@ -465,6 +465,24 @@ describe('AlertManager', () => {
       expect(events[0].type).toBe('escalated')
     })
 
+    it('advances stateChangedAt when the escalation timer fires', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test warning'
+      })
+      const before = alert.stateChangedAt
+      // Guarantee the wall clock advances past the raise timestamp.
+      await new Promise<void>((resolve) => setTimeout(resolve, 5))
+
+      fakeTimers.advanceTime(300 * 1000)
+
+      const updated = manager.getAlert(alert.id)
+      expect(updated?.priority).toBe('alarm')
+      expect((updated?.stateChangedAt ?? '') > before).toBe(true)
+    })
+
     it('should not escalate if acknowledged before timeout', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
@@ -1366,6 +1384,24 @@ describe('AlertManager', () => {
       expect(updated.silenced).toBe(false)
       expect(updated.silencedUntil).toBeUndefined()
       expect(updated.priority).toBe('alarm')
+    })
+
+    it('advances stateChangedAt when escalating an unacknowledged alert', async () => {
+      const alert = await manager.raiseAlert({
+        path: 'test.alert',
+        $source: 'test-source',
+        priority: 'warning',
+        message: 'Test warning'
+      })
+      const before = alert.stateChangedAt
+      // Guarantee the wall clock advances past the raise timestamp.
+      await new Promise<void>((resolve) => setTimeout(resolve, 5))
+
+      const updated = await manager.escalateAlert(alert.id, 'alarm')
+
+      expect(updated.state).toBe('unacknowledged')
+      expect(updated.priority).toBe('alarm')
+      expect(updated.stateChangedAt > before).toBe(true)
     })
 
     it('should start escalation timer when escalating caution to warning', async () => {

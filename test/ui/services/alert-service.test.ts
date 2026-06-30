@@ -476,6 +476,38 @@ describe('AlertService', () => {
         })
       })
 
+      it('places a freshly-escalated alarm above an older alarm of the same priority', () => {
+        // Escalation bumps stateChangedAt (IEC 62923-1 6.4.2.2), so a
+        // warning that just escalated to alarm rises above an older alarm.
+        const twoAlarms = [
+          makeAlert({
+            id: 'long-standing-alarm',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 60000).toISOString(),
+            stateChangedAt: new Date(now - 60000).toISOString()
+          }),
+          makeAlert({
+            id: 'just-escalated',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 30000).toISOString(),
+            stateChangedAt: new Date(now - 1000).toISOString()
+          })
+        ]
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(twoAlarms)
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['just-escalated', 'long-standing-alarm'])
+          service2.disconnect()
+        })
+      })
+
       it('does not reorder the list when an alert is silenced', () => {
         // Silence is not a state change, so stateChangedAt — and thus list
         // position — is unaffected (IEC 62923-1 6.4.2.2).
