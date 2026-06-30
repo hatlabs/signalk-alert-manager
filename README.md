@@ -162,7 +162,7 @@ curl -X POST http://localhost:3000/plugins/signalk-alert-manager/alerts \
     "path": "propulsion.main.coolantTemperature",
     "priority": "alarm",
     "message": "Engine coolant temperature high",
-    "category": "engine",
+    "group": "engine",
     "latching": false,
     "data": { "value": 95, "threshold": 90 }
   }'
@@ -176,7 +176,7 @@ Returns `201` with the created alert object.
 GET /plugins/signalk-alert-manager/alerts
 GET /plugins/signalk-alert-manager/alerts?state=unacknowledged
 GET /plugins/signalk-alert-manager/alerts?priority=alarm,emergency
-GET /plugins/signalk-alert-manager/alerts?category=engine
+GET /plugins/signalk-alert-manager/alerts?group=engine
 GET /plugins/signalk-alert-manager/alerts?stale=true
 ```
 
@@ -249,7 +249,7 @@ const alert = await app.alertManager.raiseAlert({
   $source: 'my-plugin',
   priority: 'warning',
   message: 'Anchor watch: vessel outside radius',
-  category: 'navigation',
+  group: 'navigation',
   latching: true
 })
 
@@ -276,7 +276,7 @@ app.alertManager.registerAlertType({
   defaultPriority: 'alarm',
   latching: false,
   message: 'Engine coolant temperature high',
-  category: 'engine'
+  group: 'engine'
 })
 ```
 
@@ -324,7 +324,7 @@ Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.
       "value": {
         "priority": "alarm",
         "message": "Engine coolant temperature high",
-        "category": "engine",
+        "group": "engine",
         "data": { "value": 95, "threshold": 90 },
         "latching": false
       }
@@ -337,7 +337,7 @@ Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.
 |---|---|---|
 | `priority` | Yes | `emergency`, `alarm`, `warning`, or `caution` |
 | `message` | Yes | Human-readable alert message |
-| `category` | No | Grouping label (e.g., `"engine"`, `"navigation"`) |
+| `group` | No | Grouping label (e.g., `"engine"`, `"navigation"`) |
 | `data` | No | Arbitrary context object (non-array) |
 | `latching` | No | Whether the alert latches (stays active after condition clears) |
 
