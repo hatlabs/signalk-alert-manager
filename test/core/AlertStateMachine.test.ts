@@ -609,6 +609,34 @@ describe('AlertStateMachine', () => {
       expect(result.stateChangedAt >= before).toBe(true)
     })
 
+    it('updates stateChangedAt when setCondition reactivates an rtn-unacknowledged alert', () => {
+      const rtn = {
+        ...makeAlert({ priority: 'alarm' }),
+        state: 'rtn-unacknowledged' as const,
+        condition: false,
+        stateChangedAt: OLD
+      }
+      const before = new Date().toISOString()
+      const result = assertAlert(stateMachine.setCondition(rtn, true).alert)
+
+      expect(result.state).toBe('unacknowledged')
+      expect(result.stateChangedAt >= before).toBe(true)
+    })
+
+    it('updates stateChangedAt when reactivating an rtn-unacknowledged alert', () => {
+      const rtn = {
+        ...makeAlert({ priority: 'alarm' }),
+        state: 'rtn-unacknowledged' as const,
+        condition: false,
+        stateChangedAt: OLD
+      }
+      const before = new Date().toISOString()
+      const result = assertAlert(stateMachine.reactivate(rtn).alert)
+
+      expect(result.state).toBe('unacknowledged')
+      expect(result.stateChangedAt >= before).toBe(true)
+    })
+
     it('does not change stateChangedAt when silencing', () => {
       const alert = { ...makeAlert(), stateChangedAt: OLD }
       const result = stateMachine.silence(alert, new Date(Date.now() + 60000))

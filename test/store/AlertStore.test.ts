@@ -599,5 +599,92 @@ describe('AlertStore', () => {
       expect(retrieved).not.toBeNull()
       expect(retrieved?.stateChangedAt).toBe('2026-03-01T12:00:00.000Z')
     })
+
+    it('migration v3 preserves category data as group when upgrading from v2', async () => {
+      const { DatabaseSync } = await import('node:sqlite')
+
+      // Build a schema-version-2 database by hand: the alerts table still has a
+      // `category` column (renamed to group_name in v3) and its index, and no
+      // state_changed_at column (added in v4).
+      const legacyDb = new DatabaseSync(testDbPath)
+      legacyDb.exec('PRAGMA journal_mode = WAL')
+      legacyDb.exec(`
+        CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+        INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01T00:00:00Z');
+        INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-01-01T00:00:00Z');
+      `)
+      legacyDb.exec(`
+        CREATE TABLE alerts (
+          id TEXT PRIMARY KEY,
+          path TEXT NOT NULL,
+          source_ref TEXT NOT NULL,
+          source_obj TEXT,
+          priority TEXT NOT NULL,
+          state TEXT NOT NULL,
+          condition INTEGER NOT NULL,
+          latching INTEGER NOT NULL,
+          silenced INTEGER NOT NULL,
+          silenced_until TEXT,
+          message TEXT NOT NULL,
+          category TEXT,
+          data TEXT,
+          raised_at TEXT NOT NULL,
+          acknowledged_at TEXT,
+          acknowledged_by TEXT,
+          cleared_at TEXT,
+          source_online INTEGER NOT NULL,
+          last_source_update TEXT NOT NULL,
+          stale INTEGER NOT NULL,
+          context TEXT
+        )
+      `)
+      legacyDb.exec('CREATE INDEX idx_alerts_category ON alerts(category)')
+      legacyDb
+        .prepare(
+          `INSERT INTO alerts (
+            id, path, source_ref, priority, state, condition, latching, silenced,
+            message, category, raised_at, source_online, last_source_update, stale
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          'legacy-v2',
+          'legacy.alert',
+          'legacy-source',
+          'alarm',
+          'unacknowledged',
+          1,
+          0,
+          0,
+          'Legacy v2 alert',
+          'engine',
+          '2026-03-01T12:00:00.000Z',
+          1,
+          '2026-03-01T12:00:00.000Z',
+          0
+        )
+      legacyDb.close()
+
+      // Opening the store runs migrateToV3 (category → group_name) then
+      // migrateToV4 (adds state_changed_at).
+      await store.initialize()
+
+      // The category value survives and reads back via the group field.
+      const retrieved = await store.get('legacy-v2')
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.group).toBe('engine')
+
+      // Group filtering works against the migrated column.
+      const filtered = await store.getAll({ group: 'engine' })
+      expect(filtered).toHaveLength(1)
+      expect(filtered[0].id).toBe('legacy-v2')
+
+      // The migration chain reached version 4.
+      const versionDb = new DatabaseSync(testDbPath)
+      const versionRow = versionDb
+        .prepare('SELECT MAX(version) AS version FROM schema_version')
+        .get() as { version: number }
+      versionDb.close()
+      expect(versionRow.version).toBe(4)
+    })
   })
 })
