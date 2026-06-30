@@ -4,13 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-06-30
+
+### Changed
+
+- **BREAKING:** Renamed the alert `category` field to `group` across the REST API (query parameter and request/response body), the `alerts.*` Signal K delta wire format, and the persisted column (`group_name`). Old `category` field names are silently ignored.
+- Repositioned the standards documentation: the alert lifecycle follows the IMO MSC.302(87) / IEC 62923 bridge alert management model; IEC 62682 contributes only the borrowed latching concept.
+
+### Added
+
+- `stateChangedAt` timestamp; the active alert list is ordered most-recent-first by time of last state change, per IEC 62923-1 6.4.2.2.
+
 ## [0.1.0] - 2026-02-25
 
 Initial release.
 
 ### Added
 
-- Alert lifecycle management (raise, acknowledge, silence, clear) following the IMO / IEC 62923 bridge alert management model
+- Alert lifecycle management (raise, acknowledge, silence, clear) based on IEC 62682 state model
 - Four IMO priority levels: emergency, alarm, warning, caution
 - Automatic escalation of unacknowledged warnings to alarms
 - Time-limited silencing with configurable durations per priority
