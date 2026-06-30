@@ -45,6 +45,7 @@ describe('TypeScript Types', () => {
         silenced: false,
         message: 'Engine coolant temperature high',
         raisedAt: '2026-01-13T10:30:00Z',
+        stateChangedAt: '2026-01-13T10:30:00Z',
         sourceOnline: true,
         lastSourceUpdate: '2026-01-13T10:30:00Z',
         stale: false
@@ -68,6 +69,7 @@ describe('TypeScript Types', () => {
         group: 'engine',
         data: { path: 'tanks.fuel.0.currentLevel', value: 0.1 },
         raisedAt: '2026-01-13T10:00:00Z',
+        stateChangedAt: '2026-01-13T10:05:00Z',
         acknowledgedAt: '2026-01-13T10:05:00Z',
         acknowledgedBy: 'captain',
         clearedAt: undefined,

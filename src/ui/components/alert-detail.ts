@@ -444,6 +444,7 @@ export class AlertDetail extends LitElement {
       message: snapshot.message,
       group: snapshot.group,
       raisedAt: raise?.timestamp ?? entries[0].timestamp,
+      stateChangedAt: clear?.timestamp ?? raise?.timestamp ?? entries[0].timestamp,
       clearedAt: clear?.timestamp,
       acknowledgedAt: ack?.timestamp,
       acknowledgedBy: ack?.userId,

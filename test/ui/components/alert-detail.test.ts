@@ -25,6 +25,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     message: 'Engine coolant temperature high',
     group: 'engine',
     raisedAt: '2026-02-19T10:00:00.000Z',
+    stateChangedAt: '2026-02-19T10:00:00.000Z',
     sourceOnline: true,
     lastSourceUpdate: '2026-02-19T10:05:00.000Z',
     stale: false,

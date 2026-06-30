@@ -24,6 +24,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     silenced: false,
     message: 'Test alert',
     raisedAt: new Date().toISOString(),
+    stateChangedAt: new Date().toISOString(),
     sourceOnline: true,
     lastSourceUpdate: new Date().toISOString(),
     stale: false,
@@ -378,7 +379,7 @@ describe('AlertService', () => {
   describe('getAlerts() sorting', () => {
     const now = Date.now()
 
-    // IMO MSC.302(87) §9.16 default: state → priority → oldest first
+    // Default: state → priority → most recent state change first (IEC 62923-1 6.4.2.2)
     describe('standard sort (default)', () => {
       const alerts = [
         makeAlert({
@@ -446,20 +447,20 @@ describe('AlertService', () => {
         expect(unackedGroup.map((a) => a.priority)).toEqual(['emergency', 'alarm', 'caution'])
       })
 
-      it('sorts oldest first within same state and priority', () => {
-        // Add two unacked alarms at different times
+      it('orders by most recent state change first within a state+priority group', () => {
+        // IEC 62923-1 6.4.2.2: ties broken by time of last state change, newest on top
         const twoAlarms = [
           makeAlert({
-            id: 'newer-alarm',
+            id: 'older-change',
             priority: 'alarm',
             state: 'unacknowledged',
-            raisedAt: new Date(now - 1000).toISOString()
+            stateChangedAt: new Date(now - 5000).toISOString()
           }),
           makeAlert({
-            id: 'older-alarm',
+            id: 'newer-change',
             priority: 'alarm',
             state: 'unacknowledged',
-            raisedAt: new Date(now - 5000).toISOString()
+            stateChangedAt: new Date(now - 1000).toISOString()
           })
         ]
         fetchMock.mockResolvedValueOnce({
@@ -470,7 +471,38 @@ describe('AlertService', () => {
         const service2 = new AlertService()
         return service2.connect().then(() => {
           const result = service2.getAlerts()
-          expect(result.map((a) => a.id)).toEqual(['older-alarm', 'newer-alarm'])
+          expect(result.map((a) => a.id)).toEqual(['newer-change', 'older-change'])
+          service2.disconnect()
+        })
+      })
+
+      it('does not reorder the list when an alert is silenced', () => {
+        // Silence is not a state change, so stateChangedAt — and thus list
+        // position — is unaffected (IEC 62923-1 6.4.2.2).
+        const twoAlarms = [
+          makeAlert({
+            id: 'recent-change',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            stateChangedAt: new Date(now - 1000).toISOString()
+          }),
+          makeAlert({
+            id: 'older-but-silenced',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            stateChangedAt: new Date(now - 5000).toISOString(),
+            silenced: true
+          })
+        ]
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(twoAlarms)
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['recent-change', 'older-but-silenced'])
           service2.disconnect()
         })
       })
@@ -478,7 +510,7 @@ describe('AlertService', () => {
       it('produces full IMO-compliant ordering', () => {
         const result = service.getAlerts()
         expect(result.map((a) => a.id)).toEqual([
-          'unacked-emergency', // unacked, highest priority, oldest
+          'unacked-emergency', // unacked, highest priority
           'rtn-unacked', // unacked (rtn), alarm
           'unacked-caution', // unacked, lowest priority
           'acked-emergency', // acked, highest priority

@@ -23,6 +23,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     silenced: false,
     message: 'Test alert',
     raisedAt: new Date().toISOString(),
+    stateChangedAt: new Date().toISOString(),
     sourceOnline: true,
     lastSourceUpdate: new Date().toISOString(),
     stale: false,
@@ -165,21 +166,22 @@ describe('AlertBanner', () => {
     expect(message?.textContent).toContain('Alarm msg')
   })
 
-  it('selects oldest alert when same priority', async () => {
+  it('selects the most recently changed alert when same priority', async () => {
+    // IEC 62923-1 6.4.2.2: most recent state change on top
     const el = await createBanner([
       makeAlert({
         priority: 'alarm',
-        message: 'Newer alarm',
-        raisedAt: '2026-01-02T00:00:00Z'
+        message: 'Older change',
+        stateChangedAt: '2026-01-01T00:00:00Z'
       }),
       makeAlert({
         priority: 'alarm',
-        message: 'Older alarm',
-        raisedAt: '2026-01-01T00:00:00Z'
+        message: 'Newer change',
+        stateChangedAt: '2026-01-02T00:00:00Z'
       })
     ])
     const message = shadowQuery(el, '.message')
-    expect(message?.textContent).toContain('Older alarm')
+    expect(message?.textContent).toContain('Newer change')
   })
 
   // -------------------------------------------------------------------------

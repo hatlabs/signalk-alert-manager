@@ -82,6 +82,12 @@ export interface Alert {
   /** ISO timestamp when alert was first raised */
   raisedAt: string
 
+  /**
+   * ISO timestamp of the last lifecycle state change (raise/ack/clear/reactivate);
+   * NOT updated by silence/unsilence. Used for IEC 62923-1 6.4.2.2 list ordering.
+   */
+  stateChangedAt: string
+
   /** ISO timestamp when operator acknowledged */
   acknowledgedAt?: string
 

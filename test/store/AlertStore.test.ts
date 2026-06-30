@@ -21,6 +21,7 @@ function createTestAlert(overrides: Partial<Alert> = {}): Alert {
     silenced: false,
     message: 'Test alert message',
     raisedAt: now,
+    stateChangedAt: now,
     sourceOnline: true,
     lastSourceUpdate: now,
     stale: false,
@@ -159,6 +160,18 @@ describe('AlertStore', () => {
       const retrieved = await store.get(alert.id)
       expect(retrieved?.id).toBe(alert.id)
       expect(retrieved?.group).toBeUndefined()
+    })
+
+    it('should round-trip stateChangedAt independently of raisedAt', async () => {
+      const alert = createTestAlert({
+        raisedAt: '2026-03-01T10:00:00.000Z',
+        stateChangedAt: '2026-03-01T11:30:00.000Z'
+      })
+
+      await store.save(alert)
+
+      const retrieved = await store.get(alert.id)
+      expect(retrieved?.stateChangedAt).toBe('2026-03-01T11:30:00.000Z')
     })
 
     it('should throw on duplicate ID', async () => {
@@ -515,6 +528,76 @@ describe('AlertStore', () => {
 
       expect(retrieved).not.toBeNull()
       expect(retrieved?.id).toBe(alert.id)
+    })
+
+    it('migration v4 backfills state_changed_at from raised_at for pre-v4 rows', async () => {
+      const { DatabaseSync } = await import('node:sqlite')
+
+      // Build a pre-v4 (schema version 3) database by hand: the alerts table
+      // has no state_changed_at column yet.
+      const legacyDb = new DatabaseSync(testDbPath)
+      legacyDb.exec('PRAGMA journal_mode = WAL')
+      legacyDb.exec(`
+        CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+        INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01T00:00:00Z');
+        INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-01-01T00:00:00Z');
+        INSERT INTO schema_version (version, applied_at) VALUES (3, '2026-01-01T00:00:00Z');
+      `)
+      legacyDb.exec(`
+        CREATE TABLE alerts (
+          id TEXT PRIMARY KEY,
+          path TEXT NOT NULL,
+          source_ref TEXT NOT NULL,
+          source_obj TEXT,
+          priority TEXT NOT NULL,
+          state TEXT NOT NULL,
+          condition INTEGER NOT NULL,
+          latching INTEGER NOT NULL,
+          silenced INTEGER NOT NULL,
+          silenced_until TEXT,
+          message TEXT NOT NULL,
+          group_name TEXT,
+          data TEXT,
+          raised_at TEXT NOT NULL,
+          acknowledged_at TEXT,
+          acknowledged_by TEXT,
+          cleared_at TEXT,
+          source_online INTEGER NOT NULL,
+          last_source_update TEXT NOT NULL,
+          stale INTEGER NOT NULL,
+          context TEXT
+        )
+      `)
+      legacyDb
+        .prepare(
+          `INSERT INTO alerts (
+            id, path, source_ref, priority, state, condition, latching, silenced,
+            message, raised_at, source_online, last_source_update, stale
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          'legacy-1',
+          'legacy.alert',
+          'legacy-source',
+          'alarm',
+          'unacknowledged',
+          1,
+          0,
+          0,
+          'Legacy alert',
+          '2026-03-01T12:00:00.000Z',
+          1,
+          '2026-03-01T12:00:00.000Z',
+          0
+        )
+      legacyDb.close()
+
+      // Opening the store runs migrateToV4, which adds and backfills the column.
+      await store.initialize()
+
+      const retrieved = await store.get('legacy-1')
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.stateChangedAt).toBe('2026-03-01T12:00:00.000Z')
     })
   })
 })

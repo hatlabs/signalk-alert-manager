@@ -560,4 +560,69 @@ describe('AlertStateMachine', () => {
       expect(result.alert?.raisedAt).toBe(originalRaisedAt)
     })
   })
+
+  describe('stateChangedAt tracking (IEC 62923-1 6.4.2.2)', () => {
+    const OLD = '2020-01-01T00:00:00.000Z'
+
+    it('sets stateChangedAt equal to raisedAt on creation', () => {
+      const alert = makeAlert()
+      expect(alert.stateChangedAt).toBe(alert.raisedAt)
+    })
+
+    it('updates stateChangedAt when acknowledging', () => {
+      const alert = { ...makeAlert(), stateChangedAt: OLD }
+      const before = new Date().toISOString()
+      const result = assertAlert(stateMachine.acknowledge(alert).alert)
+
+      expect(result.state).toBe('acknowledged')
+      expect(result.stateChangedAt >= before).toBe(true)
+    })
+
+    it('updates stateChangedAt when the condition clears to rtn-unacknowledged', () => {
+      const alert = { ...makeAlert({ priority: 'alarm' }), stateChangedAt: OLD }
+      const before = new Date().toISOString()
+      const result = assertAlert(stateMachine.clearCondition(alert).alert)
+
+      expect(result.state).toBe('rtn-unacknowledged')
+      expect(result.stateChangedAt >= before).toBe(true)
+    })
+
+    it('does not change stateChangedAt when a latching alert keeps its state', () => {
+      const alert = { ...makeAlert({ priority: 'alarm', latching: true }), stateChangedAt: OLD }
+      const result = assertAlert(stateMachine.clearCondition(alert).alert)
+
+      // Latched: stays unacknowledged, only the condition flag flips
+      expect(result.state).toBe('unacknowledged')
+      expect(result.condition).toBe(false)
+      expect(result.stateChangedAt).toBe(OLD)
+    })
+
+    it('updates stateChangedAt when reactivating an acknowledged alert', () => {
+      const acked = {
+        ...assertAlert(stateMachine.acknowledge(makeAlert()).alert),
+        stateChangedAt: OLD
+      }
+      const before = new Date().toISOString()
+      const result = assertAlert(stateMachine.reactivate(acked).alert)
+
+      expect(result.state).toBe('unacknowledged')
+      expect(result.stateChangedAt >= before).toBe(true)
+    })
+
+    it('does not change stateChangedAt when silencing', () => {
+      const alert = { ...makeAlert(), stateChangedAt: OLD }
+      const result = stateMachine.silence(alert, new Date(Date.now() + 60000))
+
+      expect(result.silenced).toBe(true)
+      expect(result.stateChangedAt).toBe(OLD)
+    })
+
+    it('does not change stateChangedAt when unsilencing', () => {
+      const alert = { ...makeAlert(), silenced: true, stateChangedAt: OLD }
+      const result = stateMachine.unsilence(alert)
+
+      expect(result.silenced).toBe(false)
+      expect(result.stateChangedAt).toBe(OLD)
+    })
+  })
 })

@@ -1475,6 +1475,7 @@ describe('AlertManager', () => {
         silenced: false,
         message: 'Stored alert',
         raisedAt: now,
+        stateChangedAt: now,
         sourceOnline: true,
         lastSourceUpdate: now,
         stale: false,
@@ -2046,6 +2047,7 @@ describe('AlertManager', () => {
         silencedUntil: new Date(Date.now() - 1000).toISOString(),
         message: 'Test alert',
         raisedAt: new Date(Date.now() - 60000).toISOString(),
+        stateChangedAt: new Date(Date.now() - 60000).toISOString(),
         sourceOnline: true,
         lastSourceUpdate: new Date().toISOString(),
         stale: false

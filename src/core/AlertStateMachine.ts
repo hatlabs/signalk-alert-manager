@@ -73,6 +73,7 @@ export function createAlert(params: CreateAlertParams): Alert {
     group: params.group,
     data: params.data,
     raisedAt: now,
+    stateChangedAt: now,
     sourceOnline: true,
     lastSourceUpdate: now,
     stale: false,
@@ -150,6 +151,7 @@ export class AlertStateMachine {
       alert: {
         ...alert,
         state: 'acknowledged',
+        stateChangedAt: now,
         acknowledgedAt: now,
         acknowledgedBy: userId
       },
@@ -219,6 +221,7 @@ export class AlertStateMachine {
       alert: {
         ...alert,
         state: 'rtn-unacknowledged',
+        stateChangedAt: now,
         condition: false,
         clearedAt: now
       },
@@ -248,12 +251,15 @@ export class AlertStateMachine {
       return this.clearCondition(alert)
     }
 
+    const now = new Date().toISOString()
+
     // Reactivating an RTN-unacknowledged alert
     if (alert.state === 'rtn-unacknowledged') {
       return {
         alert: {
           ...alert,
           state: 'unacknowledged',
+          stateChangedAt: now,
           condition: true,
           clearedAt: undefined
         },
@@ -305,12 +311,14 @@ export class AlertStateMachine {
    */
   reactivate(alert: Alert): StateTransitionResult {
     const previousState = alert.state
+    const now = new Date().toISOString()
 
     if (alert.state === 'acknowledged') {
       return {
         alert: {
           ...alert,
           state: 'unacknowledged',
+          stateChangedAt: now,
           condition: true,
           acknowledgedAt: undefined,
           acknowledgedBy: undefined
@@ -325,6 +333,7 @@ export class AlertStateMachine {
         alert: {
           ...alert,
           state: 'unacknowledged',
+          stateChangedAt: now,
           condition: true,
           clearedAt: undefined
         },

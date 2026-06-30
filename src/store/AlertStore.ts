@@ -81,10 +81,10 @@ export class AlertStore implements IAlertStore {
       const stmt = db.prepare(`
         INSERT INTO alerts (
           id, path, source_ref, source_obj, priority, state, condition, latching, silenced,
-          silenced_until, message, group_name, data, raised_at, acknowledged_at,
+          silenced_until, message, group_name, data, raised_at, state_changed_at, acknowledged_at,
           acknowledged_by, cleared_at, source_online, last_source_update, stale, context
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `)
 
@@ -103,6 +103,7 @@ export class AlertStore implements IAlertStore {
         alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
+        alert.stateChangedAt,
         alert.acknowledgedAt ?? null,
         alert.acknowledgedBy ?? null,
         alert.clearedAt ?? null,
@@ -203,6 +204,7 @@ export class AlertStore implements IAlertStore {
           group_name = ?,
           data = ?,
           raised_at = ?,
+          state_changed_at = ?,
           acknowledged_at = ?,
           acknowledged_by = ?,
           cleared_at = ?,
@@ -227,6 +229,7 @@ export class AlertStore implements IAlertStore {
         alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
+        alert.stateChangedAt,
         alert.acknowledgedAt ?? null,
         alert.acknowledgedBy ?? null,
         alert.clearedAt ?? null,
@@ -287,6 +290,9 @@ export class AlertStore implements IAlertStore {
     }
     if (currentVersion < 3) {
       this.migrateToV3(db)
+    }
+    if (currentVersion < 4) {
+      this.migrateToV4(db)
     }
   }
 
@@ -408,6 +414,27 @@ export class AlertStore implements IAlertStore {
   }
 
   /**
+   * Migration to schema version 4.
+   * Adds state_changed_at (time of last lifecycle state change, for
+   * IEC 62923-1 6.4.2.2 list ordering) and backfills it from raised_at.
+   */
+  private migrateToV4(db: DatabaseSync): void {
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec('ALTER TABLE alerts ADD COLUMN state_changed_at TEXT')
+      db.exec('UPDATE alerts SET state_changed_at = raised_at WHERE state_changed_at IS NULL')
+
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(4, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
    * Get the database, throwing if not initialized.
    */
   private getDb(): DatabaseSync {
@@ -432,6 +459,7 @@ export class AlertStore implements IAlertStore {
       silenced: row.silenced === 1,
       message: row.message,
       raisedAt: row.raised_at,
+      stateChangedAt: row.state_changed_at ?? row.raised_at,
       sourceOnline: row.source_online === 1,
       lastSourceUpdate: row.last_source_update,
       stale: row.stale === 1
@@ -493,6 +521,7 @@ interface AlertRow {
   group_name: string | null
   data: string | null
   raised_at: string
+  state_changed_at: string | null
   acknowledged_at: string | null
   acknowledged_by: string | null
   cleared_at: string | null

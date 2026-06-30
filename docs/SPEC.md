@@ -352,9 +352,9 @@ Combined with Sections 7.3.3 and 7.3.9 (unacknowledged alerts flash, acknowledge
 
 1. **State**: Unacknowledged and RTN-unacknowledged alerts first, then acknowledged
 2. **Priority**: Within each state group, highest priority first (EA → A → W → C)
-3. **Time**: Within same state and priority, oldest first (order of occurrence)
+3. **Time**: Within same state and priority, most recent on top — keyed off the time of the last lifecycle state change, not the original raise time
 
-The "oldest first" ordering within a group ensures the longest-standing alert is most prominent — the one the operator has been ignoring longest demands the most attention.
+IEC 62923-1 6.4.2.2 refines the MSC.302(87) §9.16 "order of occurrence" rule: the active list is ordered most-recent-first by the time of the last state change (raise, acknowledge, clear, reactivate). Silence and un-silence are not state changes and never reorder the list, so silencing an alert does not move it. This keeps the alert whose situation most recently changed at the top, where it is most likely to need attention.
 
 The sort order is fixed; marine alert lists are small enough that user-configurable sorting adds no value.
 
