@@ -96,12 +96,12 @@ export class AlertCard extends LitElement {
         color: var(--badge-state-text);
       }
 
-      .category {
+      .group {
         font-size: 0.7rem;
         padding: 0.125rem 0.375rem;
         border-radius: 3px;
-        background: var(--badge-category-bg);
-        color: var(--badge-category-text);
+        background: var(--badge-group-bg);
+        color: var(--badge-group-text);
       }
 
       .stale {
@@ -282,7 +282,7 @@ export class AlertCard extends LitElement {
           <div class="header">
             <span class="priority">${PRIORITY_LABELS[this.alert.priority]}</span>
             <span class="state">${STATE_LABELS[this.alert.state]}</span>
-            ${this.alert.group ? html`<span class="category">${this.alert.group}</span>` : nothing}
+            ${this.alert.group ? html`<span class="group">${this.alert.group}</span>` : nothing}
             ${this.alert.stale ? html`<span class="stale">Stale</span>` : nothing}
             ${this.alert.silenced ? html`<span class="silenced">Silenced</span>` : nothing}
           </div>

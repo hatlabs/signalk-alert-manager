@@ -162,7 +162,7 @@ describe('AlertDetail', () => {
 
     it('displays group', async () => {
       const el = await createElement(makeAlert({ group: 'engine' }))
-      const group = shadowQuery(el, '.category')
+      const group = shadowQuery(el, '.group')
       expect(group?.textContent).toContain('engine')
     })
 

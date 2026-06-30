@@ -129,12 +129,12 @@ export class AlertHistoryCard extends LitElement {
         color: var(--priority-color, #666);
       }
 
-      .category {
+      .group {
         font-size: 0.7rem;
         padding: 0.125rem 0.375rem;
         border-radius: 3px;
-        background: var(--badge-category-bg);
-        color: var(--badge-category-text);
+        background: var(--badge-group-bg);
+        color: var(--badge-group-text);
       }
 
       .message {
@@ -182,9 +182,7 @@ export class AlertHistoryCard extends LitElement {
         <div class="content">
           <div class="header">
             <span class="priority">${PRIORITY_LABELS[this.record.priority]}</span>
-            ${this.record.group
-              ? html`<span class="category">${this.record.group}</span>`
-              : nothing}
+            ${this.record.group ? html`<span class="group">${this.record.group}</span>` : nothing}
           </div>
           <div class="message">${this.record.message}</div>
           <div class="meta">

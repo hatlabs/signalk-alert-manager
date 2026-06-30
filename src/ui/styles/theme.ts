@@ -27,8 +27,8 @@ export const themeStyles = css`
 
     --badge-state-bg: #e0e0e0;
     --badge-state-text: #333;
-    --badge-category-bg: #f0f0f0;
-    --badge-category-text: #666;
+    --badge-group-bg: #f0f0f0;
+    --badge-group-text: #666;
     --badge-stale-bg: #fff3cd;
     --badge-stale-text: #856404;
     --badge-silenced-bg: #e8eaf6;
@@ -95,8 +95,8 @@ export const themeStyles = css`
 
       --badge-state-bg: #333;
       --badge-state-text: #ccc;
-      --badge-category-bg: #2a2a2a;
-      --badge-category-text: #aaa;
+      --badge-group-bg: #2a2a2a;
+      --badge-group-text: #aaa;
       --badge-stale-bg: #3d3520;
       --badge-stale-text: #d4a017;
       --badge-silenced-bg: #1a1a3e;

@@ -303,7 +303,10 @@ function applySort(alerts: Alert[], sortBy: SortBy): Alert[] {
     if (sDiff !== 0) return sDiff
     const pDiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
     if (pDiff !== 0) return pDiff
-    return newestFirst(a.stateChangedAt, b.stateChangedAt)
+    // Fall back to raisedAt when stateChangedAt is missing, mirroring the
+    // store's state_changed_at ?? raised_at; new Date(undefined) is NaN and
+    // would otherwise corrupt the ordering.
+    return newestFirst(a.stateChangedAt ?? a.raisedAt, b.stateChangedAt ?? b.raisedAt)
   })
 }
 

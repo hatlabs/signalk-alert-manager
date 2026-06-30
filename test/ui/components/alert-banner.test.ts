@@ -308,7 +308,7 @@ describe('AlertBanner', () => {
     toggle.click()
     await updateComplete(el)
 
-    const group = shadowQuery(el, '.category')
+    const group = shadowQuery(el, '.group')
     expect(group?.textContent).toContain('navigation')
     const stale = shadowQuery(el, '.stale')
     expect(stale).not.toBeNull()

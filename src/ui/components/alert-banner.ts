@@ -169,12 +169,12 @@ export class AlertBanner extends LitElement {
         color: var(--badge-state-text);
       }
 
-      .category {
+      .group {
         font-size: 0.7rem;
         padding: 0.125rem 0.375rem;
         border-radius: 3px;
-        background: var(--badge-category-bg);
-        color: var(--badge-category-text);
+        background: var(--badge-group-bg);
+        color: var(--badge-group-text);
       }
 
       .stale {
@@ -299,7 +299,7 @@ export class AlertBanner extends LitElement {
             ? html`
                 <div class="details">
                   <span class="state">${STATE_LABELS[alert.state]}</span>
-                  ${alert.group ? html`<span class="category">${alert.group}</span>` : nothing}
+                  ${alert.group ? html`<span class="group">${alert.group}</span>` : nothing}
                   ${alert.stale ? html`<span class="stale">Stale</span>` : nothing}
                   <span class="time">${formatTime(alert.raisedAt)}</span>
                 </div>

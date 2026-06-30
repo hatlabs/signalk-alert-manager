@@ -107,7 +107,7 @@ describe('AlertCard', () => {
     document.body.appendChild(el)
     await updateComplete(el)
 
-    const group = shadowQuery(el, '.category')
+    const group = shadowQuery(el, '.group')
     expect(group?.textContent).toContain('engine')
   })
 
@@ -120,7 +120,7 @@ describe('AlertCard', () => {
     document.body.appendChild(el)
     await updateComplete(el)
 
-    const group = shadowQuery(el, '.category')
+    const group = shadowQuery(el, '.group')
     expect(group).toBeNull()
   })
 

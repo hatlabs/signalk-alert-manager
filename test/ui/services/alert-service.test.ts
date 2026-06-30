@@ -539,6 +539,39 @@ describe('AlertService', () => {
         })
       })
 
+      it('falls back to raisedAt when stateChangedAt is missing (no NaN)', () => {
+        // An alert lacking stateChangedAt must not poison the sort with NaN;
+        // it falls back to raisedAt, mirroring the store's
+        // state_changed_at ?? raised_at.
+        const withoutStateChange = makeAlert({
+          id: 'no-state-change',
+          priority: 'alarm',
+          state: 'unacknowledged',
+          raisedAt: new Date(now - 1000).toISOString()
+        })
+        delete (withoutStateChange as Partial<Alert>).stateChangedAt
+
+        const olderAlarm = makeAlert({
+          id: 'older-alarm',
+          priority: 'alarm',
+          state: 'unacknowledged',
+          raisedAt: new Date(now - 5000).toISOString(),
+          stateChangedAt: new Date(now - 5000).toISOString()
+        })
+
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([olderAlarm, withoutStateChange])
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['no-state-change', 'older-alarm'])
+          service2.disconnect()
+        })
+      })
+
       it('produces full IMO-compliant ordering', () => {
         const result = service.getAlerts()
         expect(result.map((a) => a.id)).toEqual([
