@@ -55,6 +55,17 @@ export class AlertStore implements IAlertStore {
 
       return Promise.resolve()
     } catch (error) {
+      // Migration (or open) failed: tear down the half-initialized connection
+      // and reset state so a retried initialize() re-runs migrations on a
+      // fresh connection instead of reporting false success via the guard above.
+      if (this.db) {
+        try {
+          this.db.close()
+        } catch {
+          // Ignore close failures during cleanup of a failed init.
+        }
+        this.db = null
+      }
       return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
   }
@@ -81,10 +92,10 @@ export class AlertStore implements IAlertStore {
       const stmt = db.prepare(`
         INSERT INTO alerts (
           id, path, source_ref, source_obj, priority, state, condition, latching, silenced,
-          silenced_until, message, category, data, raised_at, acknowledged_at,
+          silenced_until, message, group_name, data, raised_at, state_changed_at, acknowledged_at,
           acknowledged_by, cleared_at, source_online, last_source_update, stale, context
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `)
 
@@ -100,9 +111,10 @@ export class AlertStore implements IAlertStore {
         alert.silenced ? 1 : 0,
         alert.silencedUntil ?? null,
         alert.message,
-        alert.category ?? null,
+        alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
+        alert.stateChangedAt,
         alert.acknowledgedAt ?? null,
         alert.acknowledgedBy ?? null,
         alert.clearedAt ?? null,
@@ -162,9 +174,9 @@ export class AlertStore implements IAlertStore {
         params.push(...priorities)
       }
 
-      if (filter?.category) {
-        sql += ' AND category = ?'
-        params.push(filter.category)
+      if (filter?.group) {
+        sql += ' AND group_name = ?'
+        params.push(filter.group)
       }
 
       if (filter?.stale !== undefined) {
@@ -200,9 +212,10 @@ export class AlertStore implements IAlertStore {
           silenced = ?,
           silenced_until = ?,
           message = ?,
-          category = ?,
+          group_name = ?,
           data = ?,
           raised_at = ?,
+          state_changed_at = ?,
           acknowledged_at = ?,
           acknowledged_by = ?,
           cleared_at = ?,
@@ -224,9 +237,10 @@ export class AlertStore implements IAlertStore {
         alert.silenced ? 1 : 0,
         alert.silencedUntil ?? null,
         alert.message,
-        alert.category ?? null,
+        alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
+        alert.stateChangedAt,
         alert.acknowledgedAt ?? null,
         alert.acknowledgedBy ?? null,
         alert.clearedAt ?? null,
@@ -284,6 +298,12 @@ export class AlertStore implements IAlertStore {
     }
     if (currentVersion < 2) {
       this.migrateToV2(db)
+    }
+    if (currentVersion < 3) {
+      this.migrateToV3(db)
+    }
+    if (currentVersion < 4) {
+      this.migrateToV4(db)
     }
   }
 
@@ -383,6 +403,90 @@ export class AlertStore implements IAlertStore {
   }
 
   /**
+   * Migration to schema version 3.
+   * Renames the free-text grouping column category → group_name
+   * (group is a SQL reserved word) and updates its index.
+   */
+  private migrateToV3(db: DatabaseSync): void {
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec('ALTER TABLE alerts RENAME COLUMN category TO group_name')
+      db.exec('DROP INDEX IF EXISTS idx_alerts_category')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_group ON alerts(group_name)')
+
+      this.renameHistoryDetailsCategory(db)
+
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(3, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
+   * Rewrite legacy history snapshots that embed the grouping under the old
+   * `category` key, renaming it to `group` to match the alerts column rename.
+   * Null or malformed `details` blobs are skipped so a single bad row never
+   * fails the migration.
+   */
+  private renameHistoryDetailsCategory(db: DatabaseSync): void {
+    const rows = db
+      .prepare(
+        "SELECT id, details FROM history WHERE details IS NOT NULL AND details LIKE '%category%'"
+      )
+      .all() as unknown as { id: string; details: string }[]
+
+    const update = db.prepare('UPDATE history SET details = ? WHERE id = ?')
+
+    for (const row of rows) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(row.details)
+      } catch {
+        continue
+      }
+      if (typeof parsed !== 'object' || parsed === null || !('category' in parsed)) {
+        continue
+      }
+
+      const rewritten: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        if (key === 'category') {
+          rewritten.group = value
+        } else {
+          rewritten[key] = value
+        }
+      }
+
+      update.run(JSON.stringify(rewritten), row.id)
+    }
+  }
+
+  /**
+   * Migration to schema version 4.
+   * Adds state_changed_at (time of last lifecycle state change, for
+   * IEC 62923-1 6.4.2.2 list ordering) and backfills it from raised_at.
+   */
+  private migrateToV4(db: DatabaseSync): void {
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec('ALTER TABLE alerts ADD COLUMN state_changed_at TEXT')
+      db.exec('UPDATE alerts SET state_changed_at = raised_at WHERE state_changed_at IS NULL')
+
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(4, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
    * Get the database, throwing if not initialized.
    */
   private getDb(): DatabaseSync {
@@ -407,6 +511,7 @@ export class AlertStore implements IAlertStore {
       silenced: row.silenced === 1,
       message: row.message,
       raisedAt: row.raised_at,
+      stateChangedAt: row.state_changed_at ?? row.raised_at,
       sourceOnline: row.source_online === 1,
       lastSourceUpdate: row.last_source_update,
       stale: row.stale === 1
@@ -423,8 +528,8 @@ export class AlertStore implements IAlertStore {
     if (row.silenced_until) {
       alert.silencedUntil = row.silenced_until
     }
-    if (row.category) {
-      alert.category = row.category
+    if (row.group_name) {
+      alert.group = row.group_name
     }
     if (row.data) {
       try {
@@ -465,9 +570,10 @@ interface AlertRow {
   silenced: number
   silenced_until: string | null
   message: string
-  category: string | null
+  group_name: string | null
   data: string | null
   raised_at: string
+  state_changed_at: string | null
   acknowledged_at: string | null
   acknowledged_by: string | null
   cleared_at: string | null

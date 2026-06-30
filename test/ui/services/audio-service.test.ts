@@ -24,6 +24,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     silenced: false,
     message: 'Test alert',
     raisedAt: new Date().toISOString(),
+    stateChangedAt: new Date().toISOString(),
     sourceOnline: true,
     lastSourceUpdate: new Date().toISOString(),
     stale: false,

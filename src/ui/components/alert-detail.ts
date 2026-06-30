@@ -90,12 +90,12 @@ export class AlertDetail extends LitElement {
         color: var(--badge-state-text);
       }
 
-      .category {
+      .group {
         font-size: 0.7rem;
         padding: 0.125rem 0.375rem;
         border-radius: 3px;
-        background: var(--badge-category-bg);
-        color: var(--badge-category-text);
+        background: var(--badge-group-bg);
+        color: var(--badge-group-text);
       }
 
       .stale {
@@ -427,7 +427,7 @@ export class AlertDetail extends LitElement {
     const ack = [...entries].reverse().find((e) => e.eventType === 'acknowledge')
 
     const snapshot = (raise?.details ?? clear?.details) as
-      | { message?: string; priority?: string; category?: string }
+      | { message?: string; priority?: string; group?: string }
       | undefined
 
     if (!snapshot?.message) return null
@@ -442,8 +442,9 @@ export class AlertDetail extends LitElement {
       latching: false,
       silenced: false,
       message: snapshot.message,
-      category: snapshot.category,
+      group: snapshot.group,
       raisedAt: raise?.timestamp ?? entries[0].timestamp,
+      stateChangedAt: clear?.timestamp ?? raise?.timestamp ?? entries[0].timestamp,
       clearedAt: clear?.timestamp,
       acknowledgedAt: ack?.timestamp,
       acknowledgedBy: ack?.userId,
@@ -515,9 +516,7 @@ export class AlertDetail extends LitElement {
           <div class="header-left">
             <span class="priority">${PRIORITY_LABELS[this.alert.priority]}</span>
             <span class="state">${STATE_LABELS[this.alert.state]}</span>
-            ${this.alert.category
-              ? html`<span class="category">${this.alert.category}</span>`
-              : nothing}
+            ${this.alert.group ? html`<span class="group">${this.alert.group}</span>` : nothing}
             ${this.alert.stale ? html`<span class="stale">Stale</span>` : nothing}
             ${this.alert.silenced ? html`<span class="silenced">Silenced</span>` : nothing}
           </div>

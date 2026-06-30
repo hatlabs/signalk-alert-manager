@@ -1,6 +1,6 @@
 # NMEA 2000 Alert Model Mapping
 
-How our IEC 62682-based alert state model relates to the NMEA 2000 alert PGNs, and why we chose an orthogonal model over N2K's composite state approach.
+How our alert state model — the IEC 62923-1 four-state lifecycle, with `silenced` as an orthogonal flag — relates to the NMEA 2000 alert PGNs, and why we chose an orthogonal model over N2K's composite state approach.
 
 ## NMEA 2000 Alert PGNs
 

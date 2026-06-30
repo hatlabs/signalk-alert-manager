@@ -24,6 +24,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     silenced: false,
     message: 'Test alert',
     raisedAt: new Date().toISOString(),
+    stateChangedAt: new Date().toISOString(),
     sourceOnline: true,
     lastSourceUpdate: new Date().toISOString(),
     stale: false,
@@ -301,16 +302,16 @@ describe('AlertService', () => {
         id: '1',
         priority: 'emergency',
         state: 'unacknowledged',
-        category: 'engine'
+        group: 'engine'
       }),
-      makeAlert({ id: '2', priority: 'alarm', state: 'acknowledged', category: 'engine' }),
+      makeAlert({ id: '2', priority: 'alarm', state: 'acknowledged', group: 'engine' }),
       makeAlert({
         id: '3',
         priority: 'warning',
         state: 'unacknowledged',
-        category: 'navigation'
+        group: 'navigation'
       }),
-      makeAlert({ id: '4', priority: 'caution', state: 'acknowledged', category: 'navigation' })
+      makeAlert({ id: '4', priority: 'caution', state: 'acknowledged', group: 'navigation' })
     ]
 
     beforeEach(async () => {
@@ -347,25 +348,25 @@ describe('AlertService', () => {
       expect(result).toHaveLength(2)
     })
 
-    it('filters by category (exact match)', () => {
-      const result = service.getAlerts({ category: 'engine' })
+    it('filters by group (exact match)', () => {
+      const result = service.getAlerts({ group: 'engine' })
       expect(result).toHaveLength(2)
-      expect(result.every((a) => a.category === 'engine')).toBe(true)
+      expect(result.every((a) => a.group === 'engine')).toBe(true)
     })
 
-    it('filters by category substring (case-insensitive)', () => {
-      const result = service.getAlerts({ category: 'eng' })
+    it('filters by group substring (case-insensitive)', () => {
+      const result = service.getAlerts({ group: 'eng' })
       expect(result).toHaveLength(2)
-      expect(result.every((a) => a.category === 'engine')).toBe(true)
+      expect(result.every((a) => a.group === 'engine')).toBe(true)
     })
 
-    it('filters by category case-insensitively', () => {
-      const result = service.getAlerts({ category: 'ENGINE' })
+    it('filters by group case-insensitively', () => {
+      const result = service.getAlerts({ group: 'ENGINE' })
       expect(result).toHaveLength(2)
     })
 
     it('combines filters (AND logic)', () => {
-      const result = service.getAlerts({ state: 'unacknowledged', category: 'engine' })
+      const result = service.getAlerts({ state: 'unacknowledged', group: 'engine' })
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('1')
     })
@@ -378,7 +379,7 @@ describe('AlertService', () => {
   describe('getAlerts() sorting', () => {
     const now = Date.now()
 
-    // IMO MSC.302(87) §9.16 default: state → priority → oldest first
+    // Default: state → priority → most recent state change first (IEC 62923-1 6.4.2.2)
     describe('standard sort (default)', () => {
       const alerts = [
         makeAlert({
@@ -446,20 +447,20 @@ describe('AlertService', () => {
         expect(unackedGroup.map((a) => a.priority)).toEqual(['emergency', 'alarm', 'caution'])
       })
 
-      it('sorts oldest first within same state and priority', () => {
-        // Add two unacked alarms at different times
+      it('orders by most recent state change first within a state+priority group', () => {
+        // IEC 62923-1 6.4.2.2: ties broken by time of last state change, newest on top
         const twoAlarms = [
           makeAlert({
-            id: 'newer-alarm',
+            id: 'older-change',
             priority: 'alarm',
             state: 'unacknowledged',
-            raisedAt: new Date(now - 1000).toISOString()
+            stateChangedAt: new Date(now - 5000).toISOString()
           }),
           makeAlert({
-            id: 'older-alarm',
+            id: 'newer-change',
             priority: 'alarm',
             state: 'unacknowledged',
-            raisedAt: new Date(now - 5000).toISOString()
+            stateChangedAt: new Date(now - 1000).toISOString()
           })
         ]
         fetchMock.mockResolvedValueOnce({
@@ -470,7 +471,103 @@ describe('AlertService', () => {
         const service2 = new AlertService()
         return service2.connect().then(() => {
           const result = service2.getAlerts()
-          expect(result.map((a) => a.id)).toEqual(['older-alarm', 'newer-alarm'])
+          expect(result.map((a) => a.id)).toEqual(['newer-change', 'older-change'])
+          service2.disconnect()
+        })
+      })
+
+      it('places a freshly-escalated alarm above an older alarm of the same priority', () => {
+        // Escalation bumps stateChangedAt (IEC 62923-1 6.4.2.2), so a
+        // warning that just escalated to alarm rises above an older alarm.
+        const twoAlarms = [
+          makeAlert({
+            id: 'long-standing-alarm',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 60000).toISOString(),
+            stateChangedAt: new Date(now - 60000).toISOString()
+          }),
+          makeAlert({
+            id: 'just-escalated',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            raisedAt: new Date(now - 30000).toISOString(),
+            stateChangedAt: new Date(now - 1000).toISOString()
+          })
+        ]
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(twoAlarms)
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['just-escalated', 'long-standing-alarm'])
+          service2.disconnect()
+        })
+      })
+
+      it('does not reorder the list when an alert is silenced', () => {
+        // Silence is not a state change, so stateChangedAt — and thus list
+        // position — is unaffected (IEC 62923-1 6.4.2.2).
+        const twoAlarms = [
+          makeAlert({
+            id: 'recent-change',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            stateChangedAt: new Date(now - 1000).toISOString()
+          }),
+          makeAlert({
+            id: 'older-but-silenced',
+            priority: 'alarm',
+            state: 'unacknowledged',
+            stateChangedAt: new Date(now - 5000).toISOString(),
+            silenced: true
+          })
+        ]
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(twoAlarms)
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['recent-change', 'older-but-silenced'])
+          service2.disconnect()
+        })
+      })
+
+      it('falls back to raisedAt when stateChangedAt is missing (no NaN)', () => {
+        // An alert lacking stateChangedAt must not poison the sort with NaN;
+        // it falls back to raisedAt, mirroring the store's
+        // state_changed_at ?? raised_at.
+        const withoutStateChange = makeAlert({
+          id: 'no-state-change',
+          priority: 'alarm',
+          state: 'unacknowledged',
+          raisedAt: new Date(now - 1000).toISOString()
+        })
+        delete (withoutStateChange as Partial<Alert>).stateChangedAt
+
+        const olderAlarm = makeAlert({
+          id: 'older-alarm',
+          priority: 'alarm',
+          state: 'unacknowledged',
+          raisedAt: new Date(now - 5000).toISOString(),
+          stateChangedAt: new Date(now - 5000).toISOString()
+        })
+
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([olderAlarm, withoutStateChange])
+        })
+
+        const service2 = new AlertService()
+        return service2.connect().then(() => {
+          const result = service2.getAlerts()
+          expect(result.map((a) => a.id)).toEqual(['no-state-change', 'older-alarm'])
           service2.disconnect()
         })
       })
@@ -478,7 +575,7 @@ describe('AlertService', () => {
       it('produces full IMO-compliant ordering', () => {
         const result = service.getAlerts()
         expect(result.map((a) => a.id)).toEqual([
-          'unacked-emergency', // unacked, highest priority, oldest
+          'unacked-emergency', // unacked, highest priority
           'rtn-unacked', // unacked (rtn), alarm
           'unacked-caution', // unacked, lowest priority
           'acked-emergency', // acked, highest priority

@@ -22,7 +22,7 @@
     "/alerts": {
       "get": {
         "summary": "List alerts",
-        "description": "Returns all active alerts, optionally filtered by state, priority, category, or stale status.",
+        "description": "Returns all active alerts, optionally filtered by state, priority, group, or stale status.",
         "operationId": "listAlerts",
         "parameters": [
           {
@@ -50,9 +50,9 @@
             }
           },
           {
-            "name": "category",
+            "name": "group",
             "in": "query",
-            "description": "Filter by category.",
+            "description": "Filter by group.",
             "schema": {
               "type": "string"
             }
@@ -420,7 +420,7 @@
       "AlertState": {
         "type": "string",
         "enum": ["normal", "unacknowledged", "acknowledged", "rtn-unacknowledged"],
-        "description": "Alert states based on IEC 62682 simplified model."
+        "description": "Alert states based on IEC 62923-1 (marine bridge alert management)."
       },
       "HistoryEventType": {
         "type": "string",
@@ -431,7 +431,7 @@
         "type": "object",
         "required": [
           "id", "path", "$source", "priority", "state", "condition", "latching",
-          "silenced", "message", "raisedAt", "sourceOnline", "lastSourceUpdate", "stale"
+          "silenced", "message", "raisedAt", "stateChangedAt", "sourceOnline", "lastSourceUpdate", "stale"
         ],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
@@ -445,9 +445,10 @@
           "silenced": { "type": "boolean" },
           "silencedUntil": { "type": "string", "format": "date-time" },
           "message": { "type": "string" },
-          "category": { "type": "string" },
+          "group": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },
           "raisedAt": { "type": "string", "format": "date-time" },
+          "stateChangedAt": { "type": "string", "format": "date-time" },
           "acknowledgedAt": { "type": "string", "format": "date-time" },
           "acknowledgedBy": { "type": "string" },
           "clearedAt": { "type": "string", "format": "date-time" },
@@ -477,7 +478,7 @@
             "type": "string",
             "description": "Signal K source reference. Defaults to 'rest-api' when omitted."
           },
-          "category": { "type": "string" },
+          "group": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },
           "latching": { "type": "boolean" }
         }

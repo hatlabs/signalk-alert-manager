@@ -110,7 +110,7 @@ async function raiseTestAlert(
     path: string
     priority: string
     message: string
-    category: string
+    group: string
     latching: boolean
     $source: string
     data: Record<string, unknown>
@@ -121,7 +121,7 @@ async function raiseTestAlert(
     $source: overrides?.$source ?? 'test-source',
     priority: (overrides?.priority ?? 'alarm') as Alert['priority'],
     message: overrides?.message ?? 'Test alert',
-    category: overrides?.category,
+    group: overrides?.group,
     data: overrides?.data,
     latching: overrides?.latching ?? false
   })
@@ -217,18 +217,18 @@ describe('REST API Routes', () => {
       expect(body).toHaveLength(2)
     })
 
-    it('should filter by category', async () => {
+    it('should filter by group', async () => {
       await raiseTestAlert(ctx, {
-        path: 'test.category.1',
-        category: 'engine',
+        path: 'test.group.1',
+        group: 'engine',
         message: 'Engine alert'
       })
-      await raiseTestAlert(ctx, { path: 'test.category.2', category: 'nav', message: 'Nav alert' })
+      await raiseTestAlert(ctx, { path: 'test.group.2', group: 'nav', message: 'Nav alert' })
 
-      const res = await fetch(`${ctx.baseUrl}/alerts?category=engine`)
+      const res = await fetch(`${ctx.baseUrl}/alerts?group=engine`)
       const body = (await res.json()) as Alert[]
       expect(body).toHaveLength(1)
-      expect(body[0].category).toBe('engine')
+      expect(body[0].group).toBe('engine')
     })
 
     it('should filter by stale=true', async () => {
@@ -314,14 +314,14 @@ describe('REST API Routes', () => {
           path: 'propulsion.fuel.level',
           priority: 'warning',
           message: 'Low fuel',
-          category: 'engine',
+          group: 'engine',
           data: { level: 10 },
           latching: true
         })
       })
       expect(res.status).toBe(201)
       const body = (await res.json()) as Alert
-      expect(body.category).toBe('engine')
+      expect(body.group).toBe('engine')
       expect(body.data).toEqual({ level: 10 })
       expect(body.latching).toBe(true)
     })

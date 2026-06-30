@@ -85,6 +85,7 @@ describe('OpenAPI specification', () => {
         'silenced',
         'message',
         'raisedAt',
+        'stateChangedAt',
         'sourceOnline',
         'lastSourceUpdate',
         'stale'
@@ -106,9 +107,10 @@ describe('OpenAPI specification', () => {
         'silenced',
         'silencedUntil',
         'message',
-        'category',
+        'group',
         'data',
         'raisedAt',
+        'stateChangedAt',
         'acknowledgedAt',
         'acknowledgedBy',
         'clearedAt',
@@ -161,7 +163,7 @@ describe('OpenAPI specification', () => {
     it('should define optional fields', () => {
       const schema = openApi.components.schemas.RaiseAlertRequest
       const props = Object.keys(schema.properties)
-      expect(props).toEqual(expect.arrayContaining(['$source', 'category', 'data', 'latching']))
+      expect(props).toEqual(expect.arrayContaining(['$source', 'group', 'data', 'latching']))
     })
   })
 

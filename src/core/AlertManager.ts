@@ -156,8 +156,10 @@ export class AlertManager extends EventEmitter {
     try {
       alerts = await this.store.getAll()
     } catch (err) {
+      // Fail loudly: an unreadable store must surface as a startup failure
+      // rather than silently presenting zero active alerts as truth.
       console.error('Failed to load alerts from store:', err)
-      return
+      throw err
     }
 
     for (const alert of alerts) {
@@ -239,7 +241,7 @@ export class AlertManager extends EventEmitter {
     // Log history (include alert snapshot for history view)
     this.logHistory('raise', alert, {
       newState: alert.state,
-      details: { message: alert.message, priority: alert.priority, category: alert.category }
+      details: { message: alert.message, priority: alert.priority, group: alert.group }
     })
 
     // Emit event
@@ -270,7 +272,7 @@ export class AlertManager extends EventEmitter {
         userId,
         previousState: result.previousState,
         newState: 'normal',
-        details: { message: alert.message, priority: alert.priority, category: alert.category }
+        details: { message: alert.message, priority: alert.priority, group: alert.group }
       })
       this.emitEvent('cleared', alert, result.previousState)
       return result
@@ -316,17 +318,24 @@ export class AlertManager extends EventEmitter {
     // Cancel any existing escalation timer
     this.escalationTimer.cancelTimer(alertId)
 
+    const now = new Date().toISOString()
     const priorityUpdated: Alert = {
       ...alert,
       priority: newPriority,
-      lastSourceUpdate: new Date().toISOString()
+      lastSourceUpdate: now
     }
 
     // Reactivate acknowledged/rtn-unacknowledged alerts so the operator
     // is re-alerted at the new (higher) priority.
     const reactivation = this.stateMachine.reactivate(priorityUpdated)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- reactivate() never clears
-    const updated = this.clearSilencingIfSuperseded(alertId, reactivation.alert!)
+    const reactivated = reactivation.alert!
+    // Escalation is itself a state change (IEC 62923-1 6.4.2.2), so the
+    // escalated alert rises within its new priority group.
+    const updated: Alert = {
+      ...this.clearSilencingIfSuperseded(alertId, reactivated),
+      stateChangedAt: now
+    }
 
     this.alerts.set(alertId, updated)
     if (this.store) {
@@ -455,7 +464,7 @@ export class AlertManager extends EventEmitter {
       this.logHistory('clear', alert, {
         previousState: result.previousState,
         newState: 'normal',
-        details: { message: alert.message, priority: alert.priority, category: alert.category }
+        details: { message: alert.message, priority: alert.priority, group: alert.group }
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -469,7 +478,7 @@ export class AlertManager extends EventEmitter {
         details: {
           message: result.alert.message,
           priority: result.alert.priority,
-          category: result.alert.category
+          group: result.alert.group
         }
       })
       this.emitEvent('updated', result.alert, result.previousState)
@@ -501,8 +510,8 @@ export class AlertManager extends EventEmitter {
       alerts = alerts.filter((a) => priorities.includes(a.priority))
     }
 
-    if (filter?.category) {
-      alerts = alerts.filter((a) => a.category === filter.category)
+    if (filter?.group) {
+      alerts = alerts.filter((a) => a.group === filter.group)
     }
 
     if (filter?.stale !== undefined) {
@@ -617,18 +626,21 @@ export class AlertManager extends EventEmitter {
 
     const previousPriority = alert.priority
 
-    // Escalate from warning to alarm
+    // Escalate from warning to alarm. Escalation is itself a state change
+    // (IEC 62923-1 6.4.2.2), so the alarm rises within its priority group.
     const escalated: Alert = {
       ...alert,
-      priority: 'alarm'
+      priority: 'alarm',
+      stateChangedAt: new Date().toISOString()
     }
 
     this.alerts.set(alertId, escalated)
 
     // Persist escalation to store
     if (this.store) {
-      this.store.update(escalated).catch(() => {
-        // Log error but don't fail - escalation already applied in memory
+      this.store.update(escalated).catch((err: unknown) => {
+        // Log but don't fail - escalation already applied in memory
+        console.error(`Failed to persist escalation for alert ${alertId}:`, err)
       })
     }
 
@@ -698,7 +710,7 @@ export class AlertManager extends EventEmitter {
         details: {
           message: updated.message,
           priority: updated.priority,
-          category: updated.category
+          group: updated.group
         }
       })
       this.emitEvent('raised', updated, reactivation.previousState)
@@ -853,8 +865,9 @@ export class AlertManager extends EventEmitter {
 
     // Persist to store
     if (this.store) {
-      this.store.update(unsilenced).catch(() => {
-        // Log error but don't fail - unsilence already applied in memory
+      this.store.update(unsilenced).catch((err: unknown) => {
+        // Log but don't fail - unsilence already applied in memory
+        console.error(`Failed to persist unsilence for alert ${alertId}:`, err)
       })
     }
 

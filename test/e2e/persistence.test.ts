@@ -39,7 +39,7 @@ describe('Persistence across restarts', () => {
       path: 'test.persistence.alarm',
       priority: 'alarm',
       message: 'Persistence test alert',
-      category: 'test'
+      group: 'test'
     })
     persistedAlertId = alert.id
     expect(alert.state).toBe('unacknowledged')

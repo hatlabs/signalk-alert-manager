@@ -1,7 +1,7 @@
 /**
  * AlertHistoryCard - Displays a cleared alert from history.
  *
- * Shows priority color bar, category, message, raised/cleared timestamps,
+ * Shows priority color bar, group, message, raised/cleared timestamps,
  * duration, and acknowledgment info. Clicking dispatches alert-select.
  */
 
@@ -16,7 +16,7 @@ export interface HistoryRecord {
   alertId: string
   message: string
   priority: AlertPriority
-  category?: string
+  group?: string
   raisedAt: string
   clearedAt: string
   acknowledgedBy?: string
@@ -55,14 +55,14 @@ export function buildHistoryRecords(entries: HistoryEntry[]): HistoryRecord[] {
 
     // Extract snapshot from raise or clear details
     const details = (raise?.details ?? clear.details) as
-      | { message?: string; priority?: AlertPriority; category?: string }
+      | { message?: string; priority?: AlertPriority; group?: string }
       | undefined
 
     records.push({
       alertId,
       message: details?.message ?? 'Unknown alert',
       priority: details?.priority ?? 'caution',
-      category: details?.category,
+      group: details?.group,
       raisedAt: raise?.timestamp ?? clear.timestamp,
       clearedAt: clear.timestamp,
       acknowledgedBy: group.acks.length > 0 ? group.acks[group.acks.length - 1].userId : undefined
@@ -129,12 +129,12 @@ export class AlertHistoryCard extends LitElement {
         color: var(--priority-color, #666);
       }
 
-      .category {
+      .group {
         font-size: 0.7rem;
         padding: 0.125rem 0.375rem;
         border-radius: 3px;
-        background: var(--badge-category-bg);
-        color: var(--badge-category-text);
+        background: var(--badge-group-bg);
+        color: var(--badge-group-text);
       }
 
       .message {
@@ -182,9 +182,7 @@ export class AlertHistoryCard extends LitElement {
         <div class="content">
           <div class="header">
             <span class="priority">${PRIORITY_LABELS[this.record.priority]}</span>
-            ${this.record.category
-              ? html`<span class="category">${this.record.category}</span>`
-              : nothing}
+            ${this.record.group ? html`<span class="group">${this.record.group}</span>` : nothing}
           </div>
           <div class="message">${this.record.message}</div>
           <div class="meta">

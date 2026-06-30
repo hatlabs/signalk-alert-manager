@@ -73,14 +73,23 @@ export interface Alert {
   /** Human-readable alert message */
   message: string
 
-  /** Optional grouping category (e.g., "engine", "navigation") */
-  category?: string
+  /** Optional free-text UI grouping (e.g., "engine", "navigation"); not the IEC alert category A/B/C */
+  group?: string
 
   /** Additional context data */
   data?: Record<string, unknown>
 
   /** ISO timestamp when alert was first raised */
   raisedAt: string
+
+  /**
+   * ISO timestamp of the last lifecycle state change
+   * (raise/ack/clear/reactivate/escalate). A warning→alarm escalation bumps it,
+   * but a latching alarm whose condition clears does NOT (its state stays
+   * `unacknowledged`), and silence/unsilence never bump it. Used for
+   * IEC 62923-1 6.4.2.2 list ordering.
+   */
+  stateChangedAt: string
 
   /** ISO timestamp when operator acknowledged */
   acknowledgedAt?: string
@@ -131,8 +140,8 @@ export interface AlertDefinition {
   /** Message template or static message */
   message: string
 
-  /** Optional default category */
-  category?: string
+  /** Optional default group */
+  group?: string
 }
 
 // =============================================================================
@@ -152,8 +161,8 @@ export interface RaiseAlertRequest {
   /** Human-readable alert message */
   message: string
 
-  /** Optional category for grouping */
-  category?: string
+  /** Optional free-text group for UI grouping */
+  group?: string
 
   /** Optional additional context data */
   data?: Record<string, unknown>
@@ -172,8 +181,8 @@ export interface AlertFilter {
   /** Filter by priority level(s) */
   priority?: AlertPriority | AlertPriority[]
 
-  /** Filter by category */
-  category?: string
+  /** Filter by group */
+  group?: string
 
   /** Filter by stale status */
   stale?: boolean

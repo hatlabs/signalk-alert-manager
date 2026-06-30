@@ -240,19 +240,19 @@ describe('REST API Endpoints', () => {
         path: 'test.filter.warning',
         priority: 'warning',
         message: 'Filter test warning',
-        category: 'engine'
+        group: 'engine'
       })
       await client.raiseAlert({
         path: 'test.filter.alarm',
         priority: 'alarm',
         message: 'Filter test alarm',
-        category: 'navigation'
+        group: 'navigation'
       })
       await client.raiseAlert({
         path: 'test.filter.caution',
         priority: 'caution',
         message: 'Filter test caution',
-        category: 'engine'
+        group: 'engine'
       })
     })
 
@@ -271,21 +271,21 @@ describe('REST API Endpoints', () => {
       }
     })
 
-    it('should filter by category', async () => {
-      const alerts = await client.getAlertsJson({ category: 'engine' })
+    it('should filter by group', async () => {
+      const alerts = await client.getAlertsJson({ group: 'engine' })
       for (const alert of alerts) {
-        expect(alert.category).toBe('engine')
+        expect(alert.group).toBe('engine')
       }
     })
 
     it('should combine multiple filters', async () => {
       const alerts = await client.getAlertsJson({
         priority: 'warning',
-        category: 'engine'
+        group: 'engine'
       })
       for (const alert of alerts) {
         expect(alert.priority).toBe('warning')
-        expect(alert.category).toBe('engine')
+        expect(alert.group).toBe('engine')
       }
     })
   })

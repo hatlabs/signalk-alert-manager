@@ -52,8 +52,8 @@ export class AlertClient {
       const priorities = Array.isArray(filter.priority) ? filter.priority : [filter.priority]
       params.set('priority', priorities.join(','))
     }
-    if (filter?.category) {
-      params.set('category', filter.category)
+    if (filter?.group) {
+      params.set('group', filter.group)
     }
     if (filter?.stale !== undefined) {
       params.set('stale', String(filter.stale))
@@ -67,7 +67,7 @@ export class AlertClient {
     path: string
     priority: string
     message: string
-    category?: string
+    group?: string
     data?: Record<string, unknown>
     latching?: boolean
     $source?: string
@@ -145,7 +145,7 @@ export class AlertClient {
     path: string
     priority: string
     message: string
-    category?: string
+    group?: string
     data?: Record<string, unknown>
     latching?: boolean
     $source?: string

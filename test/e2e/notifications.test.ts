@@ -79,7 +79,7 @@ describe('Signal K Notification -> Alert Flow', () => {
 
     expect(engineAlert.priority).toBe('warning')
     expect(engineAlert.state).toBe('unacknowledged')
-    expect(engineAlert.category).toBe('engine')
+    expect(engineAlert.group).toBe('engine')
   })
 
   it('should create an alert from SK alarm notification', async () => {
@@ -103,7 +103,7 @@ describe('Signal K Notification -> Alert Flow', () => {
     const anchorAlert = await waitForAlert(client, (a) => a.message === 'Anchor drag detected')
 
     expect(anchorAlert.priority).toBe('alarm')
-    expect(anchorAlert.category).toBe('navigation')
+    expect(anchorAlert.group).toBe('navigation')
   })
 
   it('should create an alert from SK emergency notification', async () => {
@@ -130,7 +130,7 @@ describe('Signal K Notification -> Alert Flow', () => {
     )
 
     expect(fireAlert.priority).toBe('emergency')
-    expect(fireAlert.category).toBe('safety')
+    expect(fireAlert.group).toBe('safety')
   })
 
   it('should clear alert when notification goes to normal state', async () => {

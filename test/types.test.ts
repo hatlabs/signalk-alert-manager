@@ -45,6 +45,7 @@ describe('TypeScript Types', () => {
         silenced: false,
         message: 'Engine coolant temperature high',
         raisedAt: '2026-01-13T10:30:00Z',
+        stateChangedAt: '2026-01-13T10:30:00Z',
         sourceOnline: true,
         lastSourceUpdate: '2026-01-13T10:30:00Z',
         stale: false
@@ -65,9 +66,10 @@ describe('TypeScript Types', () => {
         silenced: true,
         silencedUntil: '2026-01-13T10:31:00Z',
         message: 'Low fuel warning',
-        category: 'engine',
+        group: 'engine',
         data: { path: 'tanks.fuel.0.currentLevel', value: 0.1 },
         raisedAt: '2026-01-13T10:00:00Z',
+        stateChangedAt: '2026-01-13T10:05:00Z',
         acknowledgedAt: '2026-01-13T10:05:00Z',
         acknowledgedBy: 'captain',
         clearedAt: undefined,
@@ -76,7 +78,7 @@ describe('TypeScript Types', () => {
         stale: false,
         context: 'vessels.urn:mrn:imo:mmsi:123456789'
       }
-      expect(alert.category).toBe('engine')
+      expect(alert.group).toBe('engine')
       expect(alert.context).toBeDefined()
     })
   })
@@ -102,7 +104,7 @@ describe('TypeScript Types', () => {
           afterSeconds: 300
         },
         message: 'Anchor drag detected',
-        category: 'navigation'
+        group: 'navigation'
       }
       expect(definition.escalation?.toPriority).toBe('alarm')
     })
@@ -123,11 +125,11 @@ describe('TypeScript Types', () => {
         path: 'propulsion.main.temperature',
         priority: 'alarm',
         message: 'Engine overheating',
-        category: 'engine',
+        group: 'engine',
         data: { temperature: 105, threshold: 95 },
         latching: true
       }
-      expect(request.category).toBe('engine')
+      expect(request.group).toBe('engine')
     })
   })
 
@@ -136,7 +138,7 @@ describe('TypeScript Types', () => {
       const filter: AlertFilter = {
         state: 'unacknowledged',
         priority: 'alarm',
-        category: 'engine',
+        group: 'engine',
         stale: false
       }
       expect(filter.state).toBe('unacknowledged')

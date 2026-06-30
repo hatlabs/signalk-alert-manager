@@ -13,8 +13,8 @@ import { PRIORITY_ORDER } from '../styles/priority.js'
 /**
  * Sort modes for the alert list.
  *
- * - 'standard': IMO MSC.302(87) §9.16 default — unacked first, then by
- *   priority, then oldest first within each group
+ * - 'standard': unacked first, then by priority, then most recent state
+ *   change first within each group (IEC 62923-1 6.4.2.2)
  * - 'newest': Pure reverse-chronological (most recent first)
  */
 export type SortBy = 'standard' | 'newest'
@@ -139,7 +139,7 @@ export class AlertService extends EventTarget {
   /**
    * Get alerts, optionally filtered and sorted.
    *
-   * @param filter - Optional filter criteria (state, priority, category)
+   * @param filter - Optional filter criteria (state, priority, group)
    * @param sortBy - Sort order: 'standard' (IMO default) or 'newest' (reverse chronological)
    */
   getAlerts(filter?: AlertFilter, sortBy: SortBy = 'standard'): Alert[] {
@@ -264,9 +264,9 @@ function applyFilter(alerts: Alert[], filter: AlertFilter): Alert[] {
     result = result.filter((a) => priorities.includes(a.priority))
   }
 
-  if (filter.category !== undefined) {
-    const needle = filter.category.toLowerCase()
-    result = result.filter((a) => a.category?.toLowerCase().includes(needle))
+  if (filter.group !== undefined) {
+    const needle = filter.group.toLowerCase()
+    result = result.filter((a) => a.group?.toLowerCase().includes(needle))
   }
 
   if (filter.stale !== undefined) {
@@ -297,17 +297,17 @@ function applySort(alerts: Alert[], sortBy: SortBy): Alert[] {
     if (sortBy === 'newest') {
       return newestFirst(a.raisedAt, b.raisedAt)
     }
-    // IMO MSC.302(87) §9.16 default: state → priority → oldest first
+    // Default: state → priority → most recent state change first
+    // (IEC 62923-1 6.4.2.2: active list ordered by time of last state change).
     const sDiff = STATE_ORDER[a.state] - STATE_ORDER[b.state]
     if (sDiff !== 0) return sDiff
     const pDiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
     if (pDiff !== 0) return pDiff
-    return oldestFirst(a.raisedAt, b.raisedAt)
+    // Fall back to raisedAt when stateChangedAt is missing, mirroring the
+    // store's state_changed_at ?? raised_at; new Date(undefined) is NaN and
+    // would otherwise corrupt the ordering.
+    return newestFirst(a.stateChangedAt ?? a.raisedAt, b.stateChangedAt ?? b.raisedAt)
   })
-}
-
-function oldestFirst(a: string, b: string): number {
-  return new Date(a).getTime() - new Date(b).getTime()
 }
 
 function newestFirst(a: string, b: string): number {

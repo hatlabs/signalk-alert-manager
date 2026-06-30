@@ -6,7 +6,7 @@
  * ingress path for devices that communicate natively via WebSocket.
  *
  * Only "what" fields are extracted from the delta value (priority,
- * message, category, data, latching). Lifecycle fields (id, state,
+ * message, group, data, latching). Lifecycle fields (id, state,
  * silenced, etc.) are ignored — the AlertManager is authoritative
  * for those.
  *
@@ -179,7 +179,7 @@ export class AlertDeltaTransformer {
       source,
       priority: priority as AlertPriority,
       message,
-      category: typeof value.category === 'string' ? value.category : undefined,
+      group: typeof value.group === 'string' ? value.group : undefined,
       data:
         value.data && typeof value.data === 'object' && !Array.isArray(value.data)
           ? (value.data as Record<string, unknown>)

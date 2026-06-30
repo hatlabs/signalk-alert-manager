@@ -1,6 +1,6 @@
 {
   "name": "signalk-alert-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Signal K server plugin for centralized alert management following maritime (IMO) and process industry (IEC) standards.",
   "type": "module",
   "main": "dist/index.js",

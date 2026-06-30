@@ -187,8 +187,8 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
       filter.priority = priorities.length === 1 ? priorities[0] : priorities
     }
 
-    if (typeof req.query.category === 'string') {
-      filter.category = req.query.category
+    if (typeof req.query.group === 'string') {
+      filter.group = req.query.group
     }
 
     if (typeof req.query.stale === 'string') {
@@ -262,7 +262,7 @@ export function registerRoutes(router: IRouter, deps: RouteDependencies): void {
         $source: typeof body.$source === 'string' ? body.$source : 'rest-api',
         priority: body.priority as AlertPriority,
         message: body.message,
-        category: typeof body.category === 'string' ? body.category : undefined,
+        group: typeof body.group === 'string' ? body.group : undefined,
         data:
           body.data && typeof body.data === 'object' && !Array.isArray(body.data)
             ? (body.data as Record<string, unknown>)
