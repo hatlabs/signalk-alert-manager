@@ -21,17 +21,17 @@ const PRIORITY_WEIGHTS: Array<{ priority: AlertPriority; weight: number }> = [
   { priority: 'caution', weight: 0.4 }
 ]
 
-const SCENARIOS: Array<{ message: string; category: string }> = [
-  { message: 'Engine coolant temperature high', category: 'engine' },
-  { message: 'Low oil pressure', category: 'engine' },
-  { message: 'Battery voltage below threshold', category: 'electrical' },
-  { message: 'Bilge water level high', category: 'safety' },
-  { message: 'GPS signal lost', category: 'navigation' },
-  { message: 'AIS target CPA alarm', category: 'navigation' },
-  { message: 'Anchor drag detected', category: 'navigation' },
-  { message: 'Depth below minimum', category: 'navigation' },
-  { message: 'Fuel level low', category: 'engine' },
-  { message: 'Rudder angle sensor fault', category: 'steering' }
+const SCENARIOS: Array<{ message: string; group: string }> = [
+  { message: 'Engine coolant temperature high', group: 'engine' },
+  { message: 'Low oil pressure', group: 'engine' },
+  { message: 'Battery voltage below threshold', group: 'electrical' },
+  { message: 'Bilge water level high', group: 'safety' },
+  { message: 'GPS signal lost', group: 'navigation' },
+  { message: 'AIS target CPA alarm', group: 'navigation' },
+  { message: 'Anchor drag detected', group: 'navigation' },
+  { message: 'Depth below minimum', group: 'navigation' },
+  { message: 'Fuel level low', group: 'engine' },
+  { message: 'Rudder angle sensor fault', group: 'steering' }
 ]
 
 export class SimulationService {
@@ -82,7 +82,7 @@ export class SimulationService {
     const { priority } = pickWeighted(PRIORITY_WEIGHTS)
     const latching = Math.random() < 0.3
     const $source = `simulation-${String(++this.counter)}`
-    const path = `${scenario.category}.sim-${String(this.counter)}`
+    const path = `${scenario.group}.sim-${String(this.counter)}`
 
     fetch(`${API_BASE}/alerts`, {
       method: 'POST',
@@ -92,7 +92,7 @@ export class SimulationService {
         $source,
         priority,
         message: `SIM: ${scenario.message}`,
-        category: scenario.category,
+        group: scenario.group,
         latching
       })
     }).catch(() => {

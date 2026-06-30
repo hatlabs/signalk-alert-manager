@@ -427,7 +427,7 @@ export class AlertDetail extends LitElement {
     const ack = [...entries].reverse().find((e) => e.eventType === 'acknowledge')
 
     const snapshot = (raise?.details ?? clear?.details) as
-      | { message?: string; priority?: string; category?: string }
+      | { message?: string; priority?: string; group?: string }
       | undefined
 
     if (!snapshot?.message) return null
@@ -442,7 +442,7 @@ export class AlertDetail extends LitElement {
       latching: false,
       silenced: false,
       message: snapshot.message,
-      category: snapshot.category,
+      group: snapshot.group,
       raisedAt: raise?.timestamp ?? entries[0].timestamp,
       clearedAt: clear?.timestamp,
       acknowledgedAt: ack?.timestamp,
@@ -515,9 +515,7 @@ export class AlertDetail extends LitElement {
           <div class="header-left">
             <span class="priority">${PRIORITY_LABELS[this.alert.priority]}</span>
             <span class="state">${STATE_LABELS[this.alert.state]}</span>
-            ${this.alert.category
-              ? html`<span class="category">${this.alert.category}</span>`
-              : nothing}
+            ${this.alert.group ? html`<span class="category">${this.alert.group}</span>` : nothing}
             ${this.alert.stale ? html`<span class="stale">Stale</span>` : nothing}
             ${this.alert.silenced ? html`<span class="silenced">Silenced</span>` : nothing}
           </div>

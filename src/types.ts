@@ -73,8 +73,8 @@ export interface Alert {
   /** Human-readable alert message */
   message: string
 
-  /** Optional grouping category (e.g., "engine", "navigation") */
-  category?: string
+  /** Optional free-text UI grouping (e.g., "engine", "navigation"); not the IEC alert category A/B/C */
+  group?: string
 
   /** Additional context data */
   data?: Record<string, unknown>
@@ -131,8 +131,8 @@ export interface AlertDefinition {
   /** Message template or static message */
   message: string
 
-  /** Optional default category */
-  category?: string
+  /** Optional default group */
+  group?: string
 }
 
 // =============================================================================
@@ -152,8 +152,8 @@ export interface RaiseAlertRequest {
   /** Human-readable alert message */
   message: string
 
-  /** Optional category for grouping */
-  category?: string
+  /** Optional free-text group for UI grouping */
+  group?: string
 
   /** Optional additional context data */
   data?: Record<string, unknown>
@@ -172,8 +172,8 @@ export interface AlertFilter {
   /** Filter by priority level(s) */
   priority?: AlertPriority | AlertPriority[]
 
-  /** Filter by category */
-  category?: string
+  /** Filter by group */
+  group?: string
 
   /** Filter by stale status */
   stale?: boolean

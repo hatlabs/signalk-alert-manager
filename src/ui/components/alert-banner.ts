@@ -299,9 +299,7 @@ export class AlertBanner extends LitElement {
             ? html`
                 <div class="details">
                   <span class="state">${STATE_LABELS[alert.state]}</span>
-                  ${alert.category
-                    ? html`<span class="category">${alert.category}</span>`
-                    : nothing}
+                  ${alert.group ? html`<span class="category">${alert.group}</span>` : nothing}
                   ${alert.stale ? html`<span class="stale">Stale</span>` : nothing}
                   <span class="time">${formatTime(alert.raisedAt)}</span>
                 </div>

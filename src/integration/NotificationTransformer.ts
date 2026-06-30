@@ -173,7 +173,7 @@ export class NotificationTransformer {
 
     // Strip "notifications." prefix — it's a tree location, not identity
     const alertPath = path.startsWith('notifications.') ? path.slice('notifications.'.length) : path
-    const category = this.extractCategory(path)
+    const group = this.extractGroup(path)
 
     const alert = await this.deps.alertManager.raiseAlert({
       path: alertPath,
@@ -181,7 +181,7 @@ export class NotificationTransformer {
       source,
       priority,
       message: value.message,
-      category
+      group
     })
     this.pathToAlertId.set(path, alert.id)
   }
@@ -211,12 +211,12 @@ export class NotificationTransformer {
   }
 
   /**
-   * Extract category from notification path.
+   * Extract the grouping from a notification path.
    * e.g., 'notifications.engine.overheating' → 'engine'
    */
-  private extractCategory(path: string): string | undefined {
+  private extractGroup(path: string): string | undefined {
     const segments = path.split('.')
-    // segments[0] = 'notifications', segments[1] = category
+    // segments[0] = 'notifications', segments[1] = group
     return segments.length > 1 ? segments[1] : undefined
   }
 }

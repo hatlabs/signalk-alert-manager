@@ -128,7 +128,7 @@ describe('AlertStore', () => {
 
     it('should preserve all alert fields', async () => {
       const alert = createTestAlert({
-        category: 'engine',
+        group: 'engine',
         data: { temperature: 95, threshold: 90 },
         acknowledgedAt: new Date().toISOString(),
         acknowledgedBy: 'user-1',
@@ -146,7 +146,7 @@ describe('AlertStore', () => {
     it('should handle alerts without optional fields', async () => {
       const alert = createTestAlert()
       // Ensure optional fields are undefined
-      delete alert.category
+      delete alert.group
       delete alert.data
       delete alert.acknowledgedAt
       delete alert.acknowledgedBy
@@ -158,7 +158,7 @@ describe('AlertStore', () => {
 
       const retrieved = await store.get(alert.id)
       expect(retrieved?.id).toBe(alert.id)
-      expect(retrieved?.category).toBeUndefined()
+      expect(retrieved?.group).toBeUndefined()
     })
 
     it('should throw on duplicate ID', async () => {
@@ -264,13 +264,13 @@ describe('AlertStore', () => {
       expect(result[0].id).toBe('alarm')
     })
 
-    it('should filter by category', async () => {
-      const engine = createTestAlert({ id: 'engine', category: 'engine' })
-      const nav = createTestAlert({ id: 'nav', category: 'navigation' })
+    it('should filter by group', async () => {
+      const engine = createTestAlert({ id: 'engine', group: 'engine' })
+      const nav = createTestAlert({ id: 'nav', group: 'navigation' })
       await store.save(engine)
       await store.save(nav)
 
-      const result = await store.getAll({ category: 'engine' })
+      const result = await store.getAll({ group: 'engine' })
 
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('engine')
@@ -293,19 +293,19 @@ describe('AlertStore', () => {
         id: 'match',
         state: 'unacknowledged',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
       const noMatch1 = createTestAlert({
         id: 'no-match-1',
         state: 'acknowledged',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
       const noMatch2 = createTestAlert({
         id: 'no-match-2',
         state: 'unacknowledged',
         priority: 'warning',
-        category: 'engine'
+        group: 'engine'
       })
       await store.save(match)
       await store.save(noMatch1)
@@ -314,7 +314,7 @@ describe('AlertStore', () => {
       const result = await store.getAll({
         state: 'unacknowledged',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
 
       expect(result).toHaveLength(1)
@@ -351,7 +351,7 @@ describe('AlertStore', () => {
 
     it('should preserve other fields when updating', async () => {
       const alert = createTestAlert({
-        category: 'engine',
+        group: 'engine',
         data: { value: 1 }
       })
       await store.save(alert)
@@ -361,7 +361,7 @@ describe('AlertStore', () => {
 
       const retrieved = await store.get(alert.id)
       expect(retrieved?.silenced).toBe(true)
-      expect(retrieved?.category).toBe('engine')
+      expect(retrieved?.group).toBe('engine')
       expect(retrieved?.data).toEqual({ value: 1 })
     })
   })

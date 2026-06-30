@@ -139,7 +139,7 @@ export class AlertService extends EventTarget {
   /**
    * Get alerts, optionally filtered and sorted.
    *
-   * @param filter - Optional filter criteria (state, priority, category)
+   * @param filter - Optional filter criteria (state, priority, group)
    * @param sortBy - Sort order: 'standard' (IMO default) or 'newest' (reverse chronological)
    */
   getAlerts(filter?: AlertFilter, sortBy: SortBy = 'standard'): Alert[] {
@@ -264,9 +264,9 @@ function applyFilter(alerts: Alert[], filter: AlertFilter): Alert[] {
     result = result.filter((a) => priorities.includes(a.priority))
   }
 
-  if (filter.category !== undefined) {
-    const needle = filter.category.toLowerCase()
-    result = result.filter((a) => a.category?.toLowerCase().includes(needle))
+  if (filter.group !== undefined) {
+    const needle = filter.group.toLowerCase()
+    result = result.filter((a) => a.group?.toLowerCase().includes(needle))
   }
 
   if (filter.stale !== undefined) {

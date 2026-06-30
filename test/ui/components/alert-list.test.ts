@@ -97,30 +97,30 @@ describe('AlertCard', () => {
     expect(state?.textContent).toContain('Acknowledged')
   })
 
-  it('shows category when present', async () => {
+  it('shows group when present', async () => {
     const el = document.createElement('alert-card') as HTMLElement & {
       alert: Alert
       updateComplete: Promise<boolean>
     }
-    el.alert = makeAlert({ category: 'engine' })
+    el.alert = makeAlert({ group: 'engine' })
     document.body.appendChild(el)
     await updateComplete(el)
 
-    const category = shadowQuery(el, '.category')
-    expect(category?.textContent).toContain('engine')
+    const group = shadowQuery(el, '.category')
+    expect(group?.textContent).toContain('engine')
   })
 
-  it('does not show category when absent', async () => {
+  it('does not show group when absent', async () => {
     const el = document.createElement('alert-card') as HTMLElement & {
       alert: Alert
       updateComplete: Promise<boolean>
     }
-    el.alert = makeAlert({ category: undefined })
+    el.alert = makeAlert({ group: undefined })
     document.body.appendChild(el)
     await updateComplete(el)
 
-    const category = shadowQuery(el, '.category')
-    expect(category).toBeNull()
+    const group = shadowQuery(el, '.category')
+    expect(group).toBeNull()
   })
 
   it('applies priority color via CSS custom property', async () => {

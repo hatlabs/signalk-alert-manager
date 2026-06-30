@@ -273,13 +273,13 @@ describe('AlertBanner', () => {
   // -------------------------------------------------------------------------
 
   it('details are hidden by default', async () => {
-    const el = await createBanner([makeAlert({ category: 'engine' })])
+    const el = await createBanner([makeAlert({ group: 'engine' })])
     const details = shadowQuery(el, '.details')
     expect(details).toBeNull()
   })
 
   it('shows details after clicking expand', async () => {
-    const el = await createBanner([makeAlert({ category: 'engine' })])
+    const el = await createBanner([makeAlert({ group: 'engine' })])
     const toggle = shadowQuery(el, '[data-action="toggle"]') as HTMLButtonElement
     toggle.click()
     await updateComplete(el)
@@ -288,7 +288,7 @@ describe('AlertBanner', () => {
   })
 
   it('hides details after clicking collapse', async () => {
-    const el = await createBanner([makeAlert({ category: 'engine' })])
+    const el = await createBanner([makeAlert({ group: 'engine' })])
     const toggle = shadowQuery(el, '[data-action="toggle"]') as HTMLButtonElement
     toggle.click()
     await updateComplete(el)
@@ -300,14 +300,14 @@ describe('AlertBanner', () => {
     expect(details).toBeNull()
   })
 
-  it('shows category and stale in expanded view when present', async () => {
-    const el = await createBanner([makeAlert({ category: 'navigation', stale: true })])
+  it('shows group and stale in expanded view when present', async () => {
+    const el = await createBanner([makeAlert({ group: 'navigation', stale: true })])
     const toggle = shadowQuery(el, '[data-action="toggle"]') as HTMLButtonElement
     toggle.click()
     await updateComplete(el)
 
-    const category = shadowQuery(el, '.category')
-    expect(category?.textContent).toContain('navigation')
+    const group = shadowQuery(el, '.category')
+    expect(group?.textContent).toContain('navigation')
     const stale = shadowQuery(el, '.stale')
     expect(stale).not.toBeNull()
   })

@@ -22,7 +22,7 @@
     "/alerts": {
       "get": {
         "summary": "List alerts",
-        "description": "Returns all active alerts, optionally filtered by state, priority, category, or stale status.",
+        "description": "Returns all active alerts, optionally filtered by state, priority, group, or stale status.",
         "operationId": "listAlerts",
         "parameters": [
           {
@@ -50,9 +50,9 @@
             }
           },
           {
-            "name": "category",
+            "name": "group",
             "in": "query",
-            "description": "Filter by category.",
+            "description": "Filter by group.",
             "schema": {
               "type": "string"
             }
@@ -445,7 +445,7 @@
           "silenced": { "type": "boolean" },
           "silencedUntil": { "type": "string", "format": "date-time" },
           "message": { "type": "string" },
-          "category": { "type": "string" },
+          "group": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },
           "raisedAt": { "type": "string", "format": "date-time" },
           "acknowledgedAt": { "type": "string", "format": "date-time" },
@@ -477,7 +477,7 @@
             "type": "string",
             "description": "Signal K source reference. Defaults to 'rest-api' when omitted."
           },
-          "category": { "type": "string" },
+          "group": { "type": "string" },
           "data": { "type": "object", "additionalProperties": true },
           "latching": { "type": "boolean" }
         }

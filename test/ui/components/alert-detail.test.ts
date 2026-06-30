@@ -23,7 +23,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
     latching: false,
     silenced: false,
     message: 'Engine coolant temperature high',
-    category: 'engine',
+    group: 'engine',
     raisedAt: '2026-02-19T10:00:00.000Z',
     sourceOnline: true,
     lastSourceUpdate: '2026-02-19T10:05:00.000Z',
@@ -159,10 +159,10 @@ describe('AlertDetail', () => {
       expect(state?.textContent).toContain('Unacknowledged')
     })
 
-    it('displays category', async () => {
-      const el = await createElement(makeAlert({ category: 'engine' }))
-      const category = shadowQuery(el, '.category')
-      expect(category?.textContent).toContain('engine')
+    it('displays group', async () => {
+      const el = await createElement(makeAlert({ group: 'engine' }))
+      const group = shadowQuery(el, '.category')
+      expect(group?.textContent).toContain('engine')
     })
 
     it('displays source ID', async () => {

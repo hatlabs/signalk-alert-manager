@@ -92,7 +92,7 @@ describe('AlertDeltaTransformer', () => {
     expect(alerts[0].message).toBe('Engine overheating')
   })
 
-  it('should extract optional fields (category, data, latching)', async () => {
+  it('should extract optional fields (group, data, latching)', async () => {
     const delta = createTestDelta({
       updates: [
         {
@@ -102,7 +102,7 @@ describe('AlertDeltaTransformer', () => {
               value: {
                 priority: 'alarm',
                 message: 'Coolant temp high',
-                category: 'engine',
+                group: 'engine',
                 data: { value: 95, threshold: 90 },
                 latching: true
               }
@@ -118,7 +118,7 @@ describe('AlertDeltaTransformer', () => {
     })
 
     const alert = alertManager.getAlerts()[0]
-    expect(alert.category).toBe('engine')
+    expect(alert.group).toBe('engine')
     expect(alert.data).toEqual({ value: 95, threshold: 90 })
     expect(alert.latching).toBe(true)
   })

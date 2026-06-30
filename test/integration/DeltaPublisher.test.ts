@@ -57,7 +57,7 @@ describe('DeltaPublisher', () => {
       $source: 'test',
       priority: 'alarm',
       message: 'Engine overheating',
-      category: 'engine'
+      group: 'engine'
     })
 
     expect(capturedDeltas).toHaveLength(1)

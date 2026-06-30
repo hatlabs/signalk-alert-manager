@@ -54,8 +54,8 @@ class MockAlertStore implements IAlertStore {
       alerts = alerts.filter((a) => priorities.includes(a.priority))
     }
 
-    if (filter?.category) {
-      alerts = alerts.filter((a) => a.category === filter.category)
+    if (filter?.group) {
+      alerts = alerts.filter((a) => a.group === filter.group)
     }
 
     if (filter?.stale !== undefined) {
@@ -198,17 +198,17 @@ describe('AlertManager', () => {
       expect(fakeTimers.getPendingCount()).toBe(0)
     })
 
-    it('should support optional category and data', async () => {
+    it('should support optional group and data', async () => {
       const alert = await manager.raiseAlert({
         path: 'test.alert',
         $source: 'test-source',
         priority: 'alarm',
         message: 'Engine alert',
-        category: 'engine',
+        group: 'engine',
         data: { temperature: 95, threshold: 90 }
       })
 
-      expect(alert.category).toBe('engine')
+      expect(alert.group).toBe('engine')
       expect(alert.data).toEqual({ temperature: 95, threshold: 90 })
     })
 
@@ -643,26 +643,26 @@ describe('AlertManager', () => {
       expect(alarms[0].priority).toBe('alarm')
     })
 
-    it('should filter by category', async () => {
+    it('should filter by group', async () => {
       await manager.raiseAlert({
         path: 'test.alert.1',
         $source: 'source-1',
         priority: 'alarm',
         message: 'Alert 1',
-        category: 'engine'
+        group: 'engine'
       })
       await manager.raiseAlert({
         path: 'test.alert.2',
         $source: 'source-2',
         priority: 'alarm',
         message: 'Alert 2',
-        category: 'navigation'
+        group: 'navigation'
       })
 
-      const engineAlerts = manager.getAlerts({ category: 'engine' })
+      const engineAlerts = manager.getAlerts({ group: 'engine' })
 
       expect(engineAlerts).toHaveLength(1)
-      expect(engineAlerts[0].category).toBe('engine')
+      expect(engineAlerts[0].group).toBe('engine')
     })
   })
 
@@ -1730,7 +1730,7 @@ describe('AlertManager', () => {
         latching: true,
         silenced: false,
         message: 'Full alert message',
-        category: 'engine',
+        group: 'engine',
         data: { temperature: 95 },
         acknowledgedAt: new Date().toISOString(),
         acknowledgedBy: 'user-1',
@@ -1819,7 +1819,7 @@ describe('AlertManager', () => {
         $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert',
-        category: 'engine'
+        group: 'engine'
       })
 
       expect(historyStore.entries).toHaveLength(1)
@@ -1828,7 +1828,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].details).toEqual({
         message: 'Test alert',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
     })
 
@@ -1856,7 +1856,7 @@ describe('AlertManager', () => {
         $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert',
-        category: 'engine'
+        group: 'engine'
       })
       await manager.clearCondition(alert.id)
       historyStore.entries = []
@@ -1869,7 +1869,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].details).toEqual({
         message: 'Test alert',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
     })
 
@@ -1911,7 +1911,7 @@ describe('AlertManager', () => {
         $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert',
-        category: 'engine'
+        group: 'engine'
       })
       await manager.acknowledgeAlert(alert.id)
       historyStore.entries = []
@@ -1924,7 +1924,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].details).toEqual({
         message: 'Test alert',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
     })
 
@@ -1934,7 +1934,7 @@ describe('AlertManager', () => {
         $source: 'test-source',
         priority: 'alarm',
         message: 'Test alert',
-        category: 'engine'
+        group: 'engine'
       })
       historyStore.entries = []
 
@@ -1946,7 +1946,7 @@ describe('AlertManager', () => {
       expect(historyStore.entries[0].details).toEqual({
         message: 'Test alert',
         priority: 'alarm',
-        category: 'engine'
+        group: 'engine'
       })
     })
 

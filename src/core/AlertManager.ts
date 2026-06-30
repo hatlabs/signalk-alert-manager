@@ -239,7 +239,7 @@ export class AlertManager extends EventEmitter {
     // Log history (include alert snapshot for history view)
     this.logHistory('raise', alert, {
       newState: alert.state,
-      details: { message: alert.message, priority: alert.priority, category: alert.category }
+      details: { message: alert.message, priority: alert.priority, group: alert.group }
     })
 
     // Emit event
@@ -270,7 +270,7 @@ export class AlertManager extends EventEmitter {
         userId,
         previousState: result.previousState,
         newState: 'normal',
-        details: { message: alert.message, priority: alert.priority, category: alert.category }
+        details: { message: alert.message, priority: alert.priority, group: alert.group }
       })
       this.emitEvent('cleared', alert, result.previousState)
       return result
@@ -455,7 +455,7 @@ export class AlertManager extends EventEmitter {
       this.logHistory('clear', alert, {
         previousState: result.previousState,
         newState: 'normal',
-        details: { message: alert.message, priority: alert.priority, category: alert.category }
+        details: { message: alert.message, priority: alert.priority, group: alert.group }
       })
       this.emitEvent('cleared', alert, result.previousState)
     } else if (result.alert) {
@@ -469,7 +469,7 @@ export class AlertManager extends EventEmitter {
         details: {
           message: result.alert.message,
           priority: result.alert.priority,
-          category: result.alert.category
+          group: result.alert.group
         }
       })
       this.emitEvent('updated', result.alert, result.previousState)
@@ -501,8 +501,8 @@ export class AlertManager extends EventEmitter {
       alerts = alerts.filter((a) => priorities.includes(a.priority))
     }
 
-    if (filter?.category) {
-      alerts = alerts.filter((a) => a.category === filter.category)
+    if (filter?.group) {
+      alerts = alerts.filter((a) => a.group === filter.group)
     }
 
     if (filter?.stale !== undefined) {
@@ -698,7 +698,7 @@ export class AlertManager extends EventEmitter {
         details: {
           message: updated.message,
           priority: updated.priority,
-          category: updated.category
+          group: updated.group
         }
       })
       this.emitEvent('raised', updated, reactivation.previousState)

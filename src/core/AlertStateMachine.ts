@@ -24,8 +24,8 @@ export interface CreateAlertParams {
   priority: AlertPriority
   /** Human-readable alert message */
   message: string
-  /** Optional grouping category */
-  category?: string
+  /** Optional free-text UI grouping */
+  group?: string
   /** Whether alert latches (stays active after condition clears) */
   latching?: boolean
   /** Additional context data */
@@ -70,7 +70,7 @@ export function createAlert(params: CreateAlertParams): Alert {
     latching: params.latching ?? false,
     silenced: false,
     message: params.message,
-    category: params.category,
+    group: params.group,
     data: params.data,
     raisedAt: now,
     sourceOnline: true,

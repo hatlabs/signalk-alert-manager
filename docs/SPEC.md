@@ -95,7 +95,7 @@ This plugin implements a recreational *subset* of IEC 62923 bridge alert managem
 - **Longer silence durations.** Default 120 s for non-emergency alerts vs IEC 62923-1 (6.3.4.3) 30 s bridge re-trigger. On a one-person helm a constantly re-sounding alarm is counter-productive.
 - **Emergency alerts are acknowledgeable.** IEC 62923-1 (Annex G, Fig. G.1) gives emergency a normal/active diagram with no acknowledge (audible handled per A.1021(26)). We let the operator acknowledge an emergency at the helm: most users are not trained on the alert model, and an un-dismissable emergency tone — e.g. an auto-MOB raised by a false-positive BLE-beacon range loss — would be unworkable.
 - **No responsibility transfer.** IEC 62923-1 (Clause 6.9) defines `active – responsibility transferred` with ACN/ARC/HBT inter-equipment handover. There is no multi-cluster CAM network on a small craft.
-- **No alert categories A/B/C.** IEC 62923-1 (6.2.2.2) categorizes alerts by *where* they may be acknowledged. On a single-display helm every alert is acknowledgeable in one place. (The plugin's `category` field is an unrelated UI grouping, not the IEC alert category.)
+- **No alert categories A/B/C.** IEC 62923-1 (6.2.2.2) categorizes alerts by *where* they may be acknowledged. On a single-display helm every alert is acknowledgeable in one place. (The plugin's `group` field is an unrelated UI grouping, not the IEC alert category.)
 - **Escalation: change-to-alarm only.** IEC 62923-1 (6.3.7.1) also permits "repeat as warning"; we implement only the change-to-alarm option, within the IEC ≤5 min ceiling (default 300 s).
 - **Alert identity.** We use a per-occurrence UUID plus the Signal K path; IEC 62923-2 uses a standardized alert identifier (type) plus an instance. Internal-only today; the gap for N2K/ALF export is tracked in #101.
 
@@ -113,7 +113,7 @@ interface Alert {
 
   // Classification
   priority: 'emergency' | 'alarm' | 'warning' | 'caution';
-  category?: string;             // UI grouping (e.g., "engine"); NOT the IEC alert category A/B/C
+  group?: string;                // UI grouping (e.g., "engine"); NOT the IEC alert category A/B/C
 
   // State
   state: 'normal' | 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged'; // 'normal' is the transient cleared/wire value
@@ -156,7 +156,7 @@ interface AlertDefinition {
     afterSeconds: number;
   };
   message: string;               // Template or static message
-  category?: string;
+  group?: string;
 }
 ```
 
@@ -197,7 +197,7 @@ Content-Type: application/json
   "path": "propulsion.main.coolantTemperature",
   "priority": "alarm",
   "message": "Engine coolant temperature high",
-  "category": "engine",
+  "group": "engine",
   "data": {
     "value": 95,
     "threshold": 90
@@ -211,7 +211,7 @@ Content-Type: application/json
 GET /plugins/signalk-alert-manager/alerts
 GET /plugins/signalk-alert-manager/alerts?state=unacknowledged
 GET /plugins/signalk-alert-manager/alerts?priority=alarm,emergency
-GET /plugins/signalk-alert-manager/alerts?category=engine
+GET /plugins/signalk-alert-manager/alerts?group=engine
 ```
 
 #### Get Single Alert
@@ -309,7 +309,7 @@ Bidirectional support:
 
 | N2K Alert Field | Alert Manager Field |
 |-----------------|---------------------|
-| Alert Type | category + alertType |
+| Alert Type | group + alertType |
 | Alert State | state mapping |
 | Alert ID | id (generated/mapped) |
 | Alert Text | message |

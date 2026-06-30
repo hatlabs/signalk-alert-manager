@@ -81,7 +81,7 @@ export class AlertStore implements IAlertStore {
       const stmt = db.prepare(`
         INSERT INTO alerts (
           id, path, source_ref, source_obj, priority, state, condition, latching, silenced,
-          silenced_until, message, category, data, raised_at, acknowledged_at,
+          silenced_until, message, group_name, data, raised_at, acknowledged_at,
           acknowledged_by, cleared_at, source_online, last_source_update, stale, context
         ) VALUES (
           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -100,7 +100,7 @@ export class AlertStore implements IAlertStore {
         alert.silenced ? 1 : 0,
         alert.silencedUntil ?? null,
         alert.message,
-        alert.category ?? null,
+        alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
         alert.acknowledgedAt ?? null,
@@ -162,9 +162,9 @@ export class AlertStore implements IAlertStore {
         params.push(...priorities)
       }
 
-      if (filter?.category) {
-        sql += ' AND category = ?'
-        params.push(filter.category)
+      if (filter?.group) {
+        sql += ' AND group_name = ?'
+        params.push(filter.group)
       }
 
       if (filter?.stale !== undefined) {
@@ -200,7 +200,7 @@ export class AlertStore implements IAlertStore {
           silenced = ?,
           silenced_until = ?,
           message = ?,
-          category = ?,
+          group_name = ?,
           data = ?,
           raised_at = ?,
           acknowledged_at = ?,
@@ -224,7 +224,7 @@ export class AlertStore implements IAlertStore {
         alert.silenced ? 1 : 0,
         alert.silencedUntil ?? null,
         alert.message,
-        alert.category ?? null,
+        alert.group ?? null,
         alert.data ? JSON.stringify(alert.data) : null,
         alert.raisedAt,
         alert.acknowledgedAt ?? null,
@@ -284,6 +284,9 @@ export class AlertStore implements IAlertStore {
     }
     if (currentVersion < 2) {
       this.migrateToV2(db)
+    }
+    if (currentVersion < 3) {
+      this.migrateToV3(db)
     }
   }
 
@@ -383,6 +386,28 @@ export class AlertStore implements IAlertStore {
   }
 
   /**
+   * Migration to schema version 3.
+   * Renames the free-text grouping column category → group_name
+   * (group is a SQL reserved word) and updates its index.
+   */
+  private migrateToV3(db: DatabaseSync): void {
+    db.exec('BEGIN TRANSACTION')
+    try {
+      db.exec('ALTER TABLE alerts RENAME COLUMN category TO group_name')
+      db.exec('DROP INDEX IF EXISTS idx_alerts_category')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_group ON alerts(group_name)')
+
+      const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
+      stmt.run(3, new Date().toISOString())
+
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
    * Get the database, throwing if not initialized.
    */
   private getDb(): DatabaseSync {
@@ -423,8 +448,8 @@ export class AlertStore implements IAlertStore {
     if (row.silenced_until) {
       alert.silencedUntil = row.silenced_until
     }
-    if (row.category) {
-      alert.category = row.category
+    if (row.group_name) {
+      alert.group = row.group_name
     }
     if (row.data) {
       try {
@@ -465,7 +490,7 @@ interface AlertRow {
   silenced: number
   silenced_until: string | null
   message: string
-  category: string | null
+  group_name: string | null
   data: string | null
   raised_at: string
   acknowledged_at: string | null

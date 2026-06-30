@@ -22,7 +22,7 @@ export class AlertHistoryList extends LitElement {
     filterFrom: { state: true },
     filterTo: { state: true },
     filterPriority: { state: true },
-    filterCategory: { state: true }
+    filterGroup: { state: true }
   }
 
   static styles = [
@@ -96,7 +96,7 @@ export class AlertHistoryList extends LitElement {
   declare filterFrom: string
   declare filterTo: string
   declare filterPriority: string
-  declare filterCategory: string
+  declare filterGroup: string
 
   private allEntries: HistoryEntry[] = []
   private offset = 0
@@ -111,7 +111,7 @@ export class AlertHistoryList extends LitElement {
     this.filterFrom = ''
     this.filterTo = ''
     this.filterPriority = ''
-    this.filterCategory = ''
+    this.filterGroup = ''
   }
 
   connectedCallback(): void {
@@ -168,9 +168,9 @@ export class AlertHistoryList extends LitElement {
     if (this.filterPriority) {
       records = records.filter((r) => r.priority === this.filterPriority)
     }
-    if (this.filterCategory) {
-      const needle = this.filterCategory.toLowerCase()
-      records = records.filter((r) => r.category?.toLowerCase().includes(needle))
+    if (this.filterGroup) {
+      const needle = this.filterGroup.toLowerCase()
+      records = records.filter((r) => r.group?.toLowerCase().includes(needle))
     }
 
     this.records = records
@@ -208,8 +208,8 @@ export class AlertHistoryList extends LitElement {
     this.rebuildRecords()
   }
 
-  private onCategoryChange(e: Event): void {
-    this.filterCategory = (e.target as HTMLInputElement).value
+  private onGroupChange(e: Event): void {
+    this.filterGroup = (e.target as HTMLInputElement).value
     this.rebuildRecords()
   }
 
@@ -240,12 +240,12 @@ export class AlertHistoryList extends LitElement {
           </select>
         </label>
         <label>
-          Category
+          Group
           <input
             type="text"
             placeholder="Filter..."
-            .value=${this.filterCategory}
-            @input=${this.onCategoryChange}
+            .value=${this.filterGroup}
+            @input=${this.onGroupChange}
           />
         </label>
         <label>

@@ -301,16 +301,16 @@ describe('AlertService', () => {
         id: '1',
         priority: 'emergency',
         state: 'unacknowledged',
-        category: 'engine'
+        group: 'engine'
       }),
-      makeAlert({ id: '2', priority: 'alarm', state: 'acknowledged', category: 'engine' }),
+      makeAlert({ id: '2', priority: 'alarm', state: 'acknowledged', group: 'engine' }),
       makeAlert({
         id: '3',
         priority: 'warning',
         state: 'unacknowledged',
-        category: 'navigation'
+        group: 'navigation'
       }),
-      makeAlert({ id: '4', priority: 'caution', state: 'acknowledged', category: 'navigation' })
+      makeAlert({ id: '4', priority: 'caution', state: 'acknowledged', group: 'navigation' })
     ]
 
     beforeEach(async () => {
@@ -347,25 +347,25 @@ describe('AlertService', () => {
       expect(result).toHaveLength(2)
     })
 
-    it('filters by category (exact match)', () => {
-      const result = service.getAlerts({ category: 'engine' })
+    it('filters by group (exact match)', () => {
+      const result = service.getAlerts({ group: 'engine' })
       expect(result).toHaveLength(2)
-      expect(result.every((a) => a.category === 'engine')).toBe(true)
+      expect(result.every((a) => a.group === 'engine')).toBe(true)
     })
 
-    it('filters by category substring (case-insensitive)', () => {
-      const result = service.getAlerts({ category: 'eng' })
+    it('filters by group substring (case-insensitive)', () => {
+      const result = service.getAlerts({ group: 'eng' })
       expect(result).toHaveLength(2)
-      expect(result.every((a) => a.category === 'engine')).toBe(true)
+      expect(result.every((a) => a.group === 'engine')).toBe(true)
     })
 
-    it('filters by category case-insensitively', () => {
-      const result = service.getAlerts({ category: 'ENGINE' })
+    it('filters by group case-insensitively', () => {
+      const result = service.getAlerts({ group: 'ENGINE' })
       expect(result).toHaveLength(2)
     })
 
     it('combines filters (AND logic)', () => {
-      const result = service.getAlerts({ state: 'unacknowledged', category: 'engine' })
+      const result = service.getAlerts({ state: 'unacknowledged', group: 'engine' })
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('1')
     })

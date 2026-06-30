@@ -37,13 +37,13 @@ describe('buildHistoryRecords', () => {
         alertId: 'a1',
         eventType: 'raise',
         timestamp: raisedAt,
-        details: { message: 'GPS signal degraded', priority: 'warning', category: 'navigation' }
+        details: { message: 'GPS signal degraded', priority: 'warning', group: 'navigation' }
       }),
       makeEntry({
         alertId: 'a1',
         eventType: 'clear',
         timestamp: clearedAt,
-        details: { message: 'GPS signal degraded', priority: 'warning', category: 'navigation' }
+        details: { message: 'GPS signal degraded', priority: 'warning', group: 'navigation' }
       })
     ]
 
@@ -52,7 +52,7 @@ describe('buildHistoryRecords', () => {
     expect(records[0].alertId).toBe('a1')
     expect(records[0].message).toBe('GPS signal degraded')
     expect(records[0].priority).toBe('warning')
-    expect(records[0].category).toBe('navigation')
+    expect(records[0].group).toBe('navigation')
     expect(records[0].raisedAt).toBe(raisedAt)
     expect(records[0].clearedAt).toBe(clearedAt)
   })

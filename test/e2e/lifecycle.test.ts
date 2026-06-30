@@ -30,7 +30,7 @@ describe('Alert Lifecycle', () => {
         path: 'test.lifecycle.nonlatching',
         priority: 'warning',
         message: 'Test lifecycle alert',
-        category: 'test'
+        group: 'test'
       })
 
       expect(alert.id).toBeDefined()
@@ -124,7 +124,7 @@ describe('Alert Lifecycle', () => {
         path: 'test.lifecycle.latching',
         priority: 'warning',
         message: 'Latching test alert',
-        category: 'engine',
+        group: 'engine',
         latching: true
       })
       alertId = alert.id

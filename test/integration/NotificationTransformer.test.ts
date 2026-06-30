@@ -110,7 +110,7 @@ describe('NotificationTransformer', () => {
     expect(alerts[0].priority).toBe('alarm')
     expect(alerts[0].path).toBe('engine.overheating')
     expect(alerts[0].$source).toBe('notifications')
-    expect(alerts[0].category).toBe('engine')
+    expect(alerts[0].group).toBe('engine')
     expect(alerts[0].message).toBe('Engine overheating')
   })
 
