@@ -161,9 +161,10 @@ interface Alert {
   silenced: boolean;
   silencedUntil?: string;
   message: string;
-  category?: string;
+  group?: string;
   data?: Record<string, unknown>;
   raisedAt: string;
+  stateChangedAt: string;        // time of last lifecycle state change (IEC 62923-1 6.4.2.2 ordering)
   acknowledgedAt?: string;
   acknowledgedBy?: string;
   clearedAt?: string;
@@ -183,7 +184,7 @@ interface AlertDefinition {
     afterSeconds: number;
   };
   message: string;
-  category?: string;
+  group?: string;
 }
 
 ```
@@ -194,7 +195,7 @@ interface AlertDefinition {
 interface RaiseAlertRequest {
   priority: AlertPriority;
   message: string;
-  category?: string;
+  group?: string;
   data?: Record<string, unknown>;
   latching?: boolean;
 }
@@ -202,7 +203,7 @@ interface RaiseAlertRequest {
 interface AlertFilter {
   state?: AlertState | AlertState[];
   priority?: AlertPriority | AlertPriority[];
-  category?: string;
+  group?: string;
   stale?: boolean;
 }
 
