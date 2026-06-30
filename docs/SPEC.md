@@ -9,26 +9,28 @@
 
 ### 1.1 Purpose
 
-signalk-alert-manager is a Signal K server plugin that provides centralized alert management following maritime (IMO) and process industry (IEC) standards. It transforms the current ad-hoc Signal K notification model into a structured alert system with proper lifecycle management, prioritization, and acknowledgment workflows.
+signalk-alert-manager is a Signal K server plugin that provides centralized alert management based on the IMO bridge alert management model (MSC.302(87), realized in IEC 62923), with selected lifecycle concepts adapted from process-industry alarm practice (IEC 62682). It transforms the current ad-hoc Signal K notification model into a structured alert system with proper lifecycle management, prioritization, and acknowledgment workflows.
 
 ### 1.2 Background
 
-The existing Signal K notification and alarm models are not well-defined. This plugin addresses that gap by implementing:
+The existing Signal K notification and alarm models are not well-defined. This plugin addresses that gap by implementing the marine bridge alert management (BAM) model:
 - IMO MSC.302(87) "Performance Standards for Bridge Alert Management"
 - IMO A.1021(26) "Code on Alerts and Indicators"
-- IEC 62682:2023 "Management of alarm systems for the process industries"
+- IEC 62923-1 / -2 — the IEC realization of MSC.302(87) (operational requirements and the alert/indicator lists), and the marine home of the formal alert state model
+
+It additionally borrows the **latching** alert concept from IEC 62682:2023 ("Management of alarm systems for the process industries"), which marine BAM does not define. IEC 62682's process-plant machinery (alarm rationalization, shelving, performance KPIs) is out of scope.
 
 ### 1.3 Terminology
 
 Following panaaj's recommendation, this specification uses **Alert** as the primary term to avoid ambiguity with Signal K v1 "notifications" and "alarms".
 
-| Term | Definition (per IEC 62682) |
-|------|---------------------------|
-| **Alert** | Audible and/or visible means of indicating an equipment malfunction, process deviation, or abnormal condition requiring response |
+| Term | Definition |
+|------|-----------|
+| **Alert** | Announcement of an abnormal situation or condition requiring attention (IEC 62923-1 3.1.8 / IMO MSC.302(87)) |
 | **Acknowledge** | Operator action confirming recognition of an alert |
 | **Silence** | Suppress audible indicators without acknowledging |
-| **Latch** | Alert that remains active after triggering condition returns to normal |
-| **Escalate** | Automatic promotion of alert to higher priority after timeout |
+| **Latch** | Alert that remains active after its triggering condition returns to normal (concept borrowed from IEC 62682; not defined in marine BAM) |
+| **Escalate** | Automatic promotion of an alert to higher priority after a timeout |
 
 ## 2. Alert Priorities
 
@@ -37,7 +39,7 @@ Following the IMO model, four alert priorities are defined:
 | Priority | Name | Description | Requires Ack | Audible |
 |----------|------|-------------|--------------|---------|
 | **EA** | Emergency Alarm | Immediate danger to life or vessel; immediate action required | Yes | Continuous |
-| **A** | Alarm | Conditions requiring immediate attention to maintain safe operation | Yes | Yes (can silence 30s) |
+| **A** | Alarm | Conditions requiring immediate attention to maintain safe operation | Yes | Yes (silenceable; see §3.2) |
 | **W** | Warning | Conditions requiring attention for precautionary reasons | Yes | Momentary |
 | **C** | Caution | Conditions requiring attention but not immediately hazardous | No | None |
 
@@ -49,64 +51,53 @@ Following the IMO model, four alert priorities are defined:
 
 ## 3. Alert State Model
 
-Based on IEC 62682, excluding states E, F, G (Shelving, Suppressed by Design, Out of Service):
+The lifecycle is the four-state alarm/warning model of marine bridge alert management (IEC 62923-1 Table 1 / Annex G — equivalently IEC 62682 states A–D), reduced for recreational use. It omits IEC 62682's process-plant states E/F/G (shelving, suppressed-by-design, out-of-service) and IEC 62923's `active – silenced` and `active – responsibility transferred` states (see §3.4). Silencing is modeled as an orthogonal flag rather than a state.
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │                                     │
-                    ▼                                     │
-    ┌───────────────────────────┐                        │
-    │     A: NORMAL             │                        │
-    │   (No alert condition)    │                        │
-    └───────────────────────────┘                        │
-           │                 ▲                           │
-           │ condition       │ condition                 │
-           │ triggers        │ clears + acked            │
-           ▼                 │                           │
-    ┌───────────────────────────┐                        │
-    │  B: UNACKNOWLEDGED        │                        │
-    │     ACTIVE                │──────────┐             │
-    │ (Alert active, not acked) │          │             │
-    └───────────────────────────┘          │             │
-           │                               │             │
-           │ operator                      │ condition   │
-           │ acknowledges                  │ clears      │
-           ▼                               ▼             │
-    ┌───────────────────────────┐   ┌───────────────────────────┐
-    │  C: ACKNOWLEDGED          │   │  D: RETURN TO NORMAL      │
-    │     ACTIVE                │   │     UNACKNOWLEDGED        │
-    │ (Alert active, acked)     │   │ (Condition cleared,       │
-    └───────────────────────────┘   │  awaiting ack)            │
-           │                        └───────────────────────────┘
-           │ condition                     │
-           │ clears                        │ operator
-           │                               │ acknowledges
-           ▼                               │
-           └───────────────────────────────┘
+NORMAL ──────────(condition triggers)──────────► UNACKNOWLEDGED
+UNACKNOWLEDGED ───(operator acknowledges)───────► ACKNOWLEDGED
+UNACKNOWLEDGED ───(condition clears)────────────► RTN-UNACKNOWLEDGED
+ACKNOWLEDGED ─────(condition clears)────────────► NORMAL
+RTN-UNACKNOWLEDGED (operator acknowledges)──────► NORMAL
+ACKNOWLEDGED / RTN-UNACKNOWLEDGED (re-triggers)─► UNACKNOWLEDGED
 ```
+
+Priority (emergency / alarm / warning / caution) is an orthogonal dimension, as are `silenced` and the triggering `condition`.
 
 ### 3.1 State Definitions
 
-| State | Code | Condition | Acknowledged | Visual | Audible |
-|-------|------|-----------|--------------|--------|---------|
-| Normal | A | No | N/A | None | None |
-| Unacked Active | B | Yes | No | Flashing | Yes (per priority) |
-| Acked Active | C | Yes | Yes | Steady | None |
-| RTN Unacked | D | No | No | Flashing | Brief |
+| State | Condition active | Acknowledged | Visual | Audible |
+|-------|------------------|--------------|--------|---------|
+| normal | No | N/A | None | None |
+| unacknowledged | Yes | No | Flashing | Yes (per priority) |
+| acknowledged | Yes | Yes | Steady | None |
+| rtn-unacknowledged | No | No | Flashing | Brief |
 
 ### 3.2 Silencing
 
-- Silencing suppresses audible indicators without acknowledging
-- For priority A: silencing is temporary (30 seconds, configurable)
-- For priority EA: silencing may have shorter duration or require reconfirmation
-- Global silence action affects all currently sounding alerts
+- Silencing suppresses audible indicators without acknowledging the alert, and does not advance the lifecycle state — it is an orthogonal flag, and the escalation timer keeps running.
+- Non-emergency alerts: silence auto-expires after a configurable timeout (default 120 s — `defaultMaxSilenceSeconds`). This deliberately exceeds IEC 62923-1 (6.3.4.3) 30 s bridge re-trigger; see §3.4.
+- Emergency: shorter default (30 s — `emergencyMaxSilenceSeconds`).
+- A global "silence all" action affects all currently sounding alerts.
 
 ### 3.3 Latched Alerts
 
-For one-shot events (e.g., waypoint arrival, anchor drag):
-- Alert remains in state B even after triggering condition clears
-- Acknowledging a latched alert automatically resets it to Normal
-- Latching behavior is configurable per alert definition
+Latching is borrowed from IEC 62682 (process industries); marine BAM does not define it. It suits one-shot marine events (e.g. waypoint arrival, anchor drag) whose triggering condition is momentary:
+- The alert remains `unacknowledged` (active) even after the triggering condition clears.
+- Acknowledging a latched alert automatically resets it to `normal`.
+- Latching behavior is configurable per alert definition.
+
+### 3.4 Deliberate deviations from full marine BAM
+
+This plugin implements a recreational *subset* of IEC 62923 bridge alert management. The following deviations are intentional — chosen for a single-helm vessel rather than a SOLAS bridge with a watch team — and are documented here so they are not mistaken for omissions:
+
+- **Silencing is an orthogonal flag, not a state.** IEC 62923-1 models `active – silenced` as a first-class state; we track `silenced` independently of the lifecycle state. The `(state, silenced)` pair reconstructs it, and this keeps audio-suppression separate from the lifecycle (matching the NMEA 2000 Temporary Silence Status field).
+- **Longer silence durations.** Default 120 s for non-emergency alerts vs IEC 62923-1 (6.3.4.3) 30 s bridge re-trigger. On a one-person helm a constantly re-sounding alarm is counter-productive.
+- **Emergency alerts are acknowledgeable.** IEC 62923-1 (Annex G, Fig. G.1) gives emergency a normal/active diagram with no acknowledge (audible handled per A.1021(26)). We let the operator acknowledge an emergency at the helm: most users are not trained on the alert model, and an un-dismissable emergency tone — e.g. an auto-MOB raised by a false-positive BLE-beacon range loss — would be unworkable.
+- **No responsibility transfer.** IEC 62923-1 (Clause 6.9) defines `active – responsibility transferred` with ACN/ARC/HBT inter-equipment handover. There is no multi-cluster CAM network on a small craft.
+- **No alert categories A/B/C.** IEC 62923-1 (6.2.2.2) categorizes alerts by *where* they may be acknowledged. On a single-display helm every alert is acknowledgeable in one place. (The plugin's `category` field is an unrelated UI grouping, not the IEC alert category.)
+- **Escalation: change-to-alarm only.** IEC 62923-1 (6.3.7.1) also permits "repeat as warning"; we implement only the change-to-alarm option, within the IEC ≤5 min ceiling (default 300 s).
+- **Alert identity.** We use a per-occurrence UUID plus the Signal K path; IEC 62923-2 uses a standardized alert identifier (type) plus an instance. Internal-only today; the gap for N2K/ALF export is tracked in #101.
 
 ## 4. Alert Data Model
 
@@ -122,10 +113,10 @@ interface Alert {
 
   // Classification
   priority: 'emergency' | 'alarm' | 'warning' | 'caution';
-  category?: string;             // Optional grouping (e.g., "engine", "navigation")
+  category?: string;             // UI grouping (e.g., "engine"); NOT the IEC alert category A/B/C
 
   // State
-  state: 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
+  state: 'normal' | 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged'; // 'normal' is the transient cleared/wire value
   silenced: boolean;
   silencedUntil?: string;        // ISO timestamp
 
@@ -323,6 +314,8 @@ Bidirectional support:
 | Alert ID | id (generated/mapped) |
 | Alert Text | message |
 
+**Alert identity gap:** N2K (PGN 126983 ALF) and IEC 61162-1 expect a standardized *alert identifier* (a type code per IEC 62923-2 Annex A, or the manufacturer range) plus an *alert instance* — not our per-occurrence UUID or the Signal K path. A path→identifier mapping is required before N2K export; tracked in #101.
+
 ## 8. User Interface
 
 ### 8.1 Design Guidelines
@@ -396,8 +389,8 @@ GET /plugins/signalk-alert-manager/alerts/history?from=2026-01-01&to=2026-01-13
     }
   },
   "silencing": {
-    "alarmMaxSeconds": 30,
-    "emergencyMaxSeconds": 10
+    "defaultMaxSilenceSeconds": 120,
+    "emergencyMaxSilenceSeconds": 30
   },
   "sourceTimeout": {
     "markStaleAfterSeconds": 60
@@ -419,7 +412,7 @@ GET /plugins/signalk-alert-manager/alerts/history?from=2026-01-01&to=2026-01-13
 1. **Core Alert Lifecycle**
    - Raise, acknowledge, silence, clear
    - All four priority levels
-   - State model (A, B, C, D)
+   - Four-state lifecycle (normal / unacknowledged / acknowledged / rtn-unacknowledged)
    - Latching support
 
 2. **APIs**
@@ -449,7 +442,9 @@ GET /plugins/signalk-alert-manager/alerts/history?from=2026-01-01&to=2026-01-13
 
 - [IMO MSC.302(87)](https://www.imo.org/en/OurWork/Safety/Pages/BridgeAlertManagement.aspx) - Bridge Alert Management Performance Standards
 - [IMO A.1021(26)](https://www.imo.org/en/KnowledgeCentre/IndexofIMOResolutions/Pages/A-2009-11.aspx) - Code on Alerts and Indicators
-- IEC 62682:2023 - Management of alarm systems for the process industries
+- IEC 62923-1:2018 - Bridge alert management: operational and performance requirements (IEC realization of MSC.302(87); source of the formal alert state model)
+- IEC 62923-2:2018 - Bridge alert management: alert and indicator lists
+- IEC 62682:2023 - Management of alarm systems for the process industries (source of the borrowed latching concept; otherwise out of scope)
 - [OpenBridge Design System](https://www.openbridge.no/)
 - [Signal K Specification](https://signalk.org/specification/)
 - [GitHub Issue #1857](https://github.com/SignalK/signalk-server/issues/1857) - Data model and lifecycle for alerts
