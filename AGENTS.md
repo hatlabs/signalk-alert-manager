@@ -2,7 +2,7 @@
 
 ## Repository Purpose
 
-Signal K server plugin for centralized alert management following maritime (IMO MSC.302(87)) and process industry (IEC 62682) standards. Transforms Signal K notifications into a structured alert system with lifecycle management, prioritization, and acknowledgment workflows.
+Signal K server plugin for centralized alert management implementing the IMO bridge alert management model (MSC.302(87) / IEC 62923), with the latching concept borrowed from IEC 62682 (process industries). Transforms Signal K notifications into a structured alert system with lifecycle management, prioritization, and acknowledgment workflows.
 
 ## Key Files
 
@@ -28,7 +28,7 @@ signalk-alert-manager/
 │   ├── types.ts                    # TypeScript type definitions
 │   ├── core/
 │   │   ├── AlertManager.ts         # Main orchestrator
-│   │   ├── AlertStateMachine.ts    # State transitions per IEC 62682
+│   │   ├── AlertStateMachine.ts    # Alert lifecycle state transitions (IEC 62923-1 model)
 │   │   └── EscalationTimer.ts      # Warning-to-alarm escalation
 │   ├── store/
 │   │   ├── AlertStore.ts           # SQLite alert persistence via node:sqlite
@@ -81,23 +81,23 @@ signalk-alert-manager/
 | Priority | Code | Audible | Requires Ack |
 |----------|------|---------|--------------|
 | Emergency | EA | Continuous | Yes |
-| Alarm | A | Yes (30s silence) | Yes |
+| Alarm | A | Yes (silenceable) | Yes |
 | Warning | W | Momentary | Yes |
 | Caution | C | None | No |
 
-### State Machine (IEC 62682)
+### State Machine (IEC 62923-1)
 
 ```
-A: Normal (no alert)
+Normal (no alert)
     |
     v condition triggers
-B: Unacknowledged Active --> D: RTN Unacknowledged (condition clears before ack)
-    |                              |
-    v operator acknowledges        v operator acknowledges
-C: Acknowledged Active ---------> A: Normal (condition clears after ack)
+Unacknowledged --> RTN-unacknowledged (condition clears before ack)
+    |                     |
+    v acknowledges        v acknowledges
+Acknowledged --------> Normal (condition clears after ack)
 ```
 
-States B and D flash visual indicators and sound audible alerts per priority.
+Unacknowledged and RTN-unacknowledged states flash visual indicators and sound audible alerts per priority.
 
 ## Development Commands
 
@@ -195,7 +195,7 @@ const deltas = mockApi.getCapturedDeltas()
 
 ### Test Categories
 
-- **State machine tests**: Verify IEC 62682 state transitions
+- **State machine tests**: Verify alert lifecycle state transitions
 - **API tests**: REST endpoint behavior and OpenAPI spec validation
 - **Integration tests**: SK notification transformation, delta publishing
 - **Store tests**: SQLite persistence and history queries
@@ -206,7 +206,8 @@ const deltas = mockApi.getCapturedDeltas()
 
 - **IMO MSC.302(87)**: Bridge Alert Management Performance Standards
 - **IMO A.1021(26)**: Code on Alerts and Indicators
-- **IEC 62682:2023**: Management of alarm systems for the process industries
+- **IEC 62923-1/-2:2018**: Bridge Alert Management — IEC realization of MSC.302(87); the formal alert state model and alert/indicator lists
+- **IEC 62682:2023**: Management of alarm systems for the process industries (source of the borrowed latching concept)
 - **OpenBridge**: Maritime UI design guidelines
 
 ## Related Repos

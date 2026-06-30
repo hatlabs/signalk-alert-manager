@@ -35,7 +35,7 @@ signalk-alert-manager is a Signal K server plugin that provides centralized aler
 The central state machine managing alert lifecycle.
 
 **Responsibilities:**
-- Enforce state transitions per IEC 62682 model
+- Enforce alert lifecycle state transitions (IEC 62923-1 model)
 - Handle acknowledgment, silencing, and clearing
 - Manage escalation timers
 - Track source liveness and mark stale alerts
@@ -145,7 +145,7 @@ Browser-based alert management interface.
 // Alert priorities (IMO model)
 type AlertPriority = 'emergency' | 'alarm' | 'warning' | 'caution';
 
-// Alert states (IEC 62682 simplified)
+// Alert lifecycle states (IEC 62923-1 four-state subset)
 type AlertState = 'normal' | 'unacknowledged' | 'acknowledged' | 'rtn-unacknowledged';
 
 // Full alert instance

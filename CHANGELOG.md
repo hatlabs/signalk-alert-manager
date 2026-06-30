@@ -10,7 +10,7 @@ Initial release.
 
 ### Added
 
-- Alert lifecycle management (raise, acknowledge, silence, clear) based on IEC 62682 state model
+- Alert lifecycle management (raise, acknowledge, silence, clear) following the IMO / IEC 62923 bridge alert management model
 - Four IMO priority levels: emergency, alarm, warning, caution
 - Automatic escalation of unacknowledged warnings to alarms
 - Time-limited silencing with configurable durations per priority
