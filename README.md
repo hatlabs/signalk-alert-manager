@@ -1,32 +1,34 @@
 # signalk-alert-manager
 
-Signal K server plugin for centralized alert management following maritime and process industry standards.
+Signal K server plugin for centralized alert management following the IMO bridge alert management standards (MSC.302(87) / IEC 62923).
 
 ## Why This Plugin?
 
-Signal K has no built-in alert management. Maritime safety standards (IMO MSC.302(87), IEC 62682) require features that simply don't exist in the server: alert lifecycle tracking, operator acknowledgment, persistence across restarts, silencing, escalation, and audit trails.
+Signal K's server includes a Notifications API that assigns each notification an ID and can raise, acknowledge, and silence it. What it doesn't provide is the alert management the IMO bridge alert management standards (MSC.302(87), realized in IEC 62923) call for: a formal lifecycle state machine with return-to-normal handling, persistence across restarts, automatic escalation, source-liveness tracking, and an audit trail.
 
 signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, incoming `alerts.*` deltas from devices, or automatically from existing `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
 
 ### Relationship to Signal K Notifications
 
-Signal K's `notifications.*` paths provide a simple signaling layer — a value at a path with a state and message. They were not designed for alert management and lack lifecycle, acknowledgment, persistence, and history. The alert manager is a separate system that can *ingest* notifications as one alert source among others, not a replacement or extension of the notification mechanism.
+Signal K's `notifications.*` paths provide a signaling layer — a value at a path with a state and message — and the server's Notifications API layers basic lifecycle on top: a per-notification ID, acknowledge and silence actions, and reactivation when severity changes. It still lacks the standards-based alert management this plugin targets: a formal alert lifecycle state machine with return-to-normal, persistence, escalation, history, and source-liveness tracking. The alert manager is a separate system that can *ingest* notifications as one alert source among others, not a replacement or extension of the notification mechanism.
 
 The comparison below summarizes the differences:
 
 | Capability | Signal K Notifications | Alert Manager |
 |---|---|---|
-| Data model | Key-value at `notifications.*` paths | Alert objects with unique IDs, full metadata |
-| States | `normal`, `nominal`, `alert`, `warn`, `alarm`, `emergency` | IEC 62682: unacknowledged, acknowledged, return-to-normal |
-| Lifecycle | None — value replaced on update | Raise → acknowledge → clear with full tracking |
-| Acknowledgment | Not supported | Per-alert, records who and when |
-| Silencing | Not supported | Time-limited, configurable per priority |
+| Data model | `notifications.*` values, each with a per-notification ID and silence/ack status | Alert objects with unique IDs, full metadata |
+| States | `normal`, `nominal`, `alert`, `warn`, `alarm`, `emergency` (severity) | IEC 62923 lifecycle: unacknowledged, acknowledged, return-to-normal |
+| Lifecycle | Basic — acknowledge, silence, clear, and reactivation on severity change | Full IEC 62923 four-state lifecycle with return-to-normal tracking |
+| Acknowledgment | Supported (status flag, no operator identity) | Per-alert, records who and when |
+| Silencing | Supported (no timeout) | Time-limited, configurable per priority |
 | Escalation | Not supported | Automatic priority promotion on timeout |
 | Persistence | In-memory only (lost on restart) | SQLite — survives restarts |
 | History | None | Full audit trail with query API |
 | Source tracking | `$source` field | Source liveness monitoring, stale detection |
-| Priority model | Implicit in state string | Four explicit levels (IMO model) with defined behaviors |
-| Creation | Zone triggers or manual deltas | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
+| Priority model | Same as the severity `state` — one dimension, no separate axis | Separate axis from lifecycle state, with defined per-level behavior |
+| Creation | Zone triggers, manual deltas, or the Notifications API (REST/plugin) | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
+
+> **Priority model** here means how urgency is *represented*, not whether it exists. Notifications fold urgency into the `state` value, so the severity levels (`alert`/`warn`/`alarm`/`emergency`) and the field that changes over the notification's life are one and the same. The alert manager keeps priority as a separate axis from lifecycle state — an alert holds its priority while moving through the lifecycle — and attaches behavior to each level (audible pattern, acknowledgment requirement, escalation eligibility). See [Priority Levels](#priority-levels).
 
 ## Alert Model
 
@@ -41,11 +43,11 @@ Four priority levels follow the IMO model, from most to least urgent:
 | **Warning** | Conditions requiring precautionary attention | 2-pulse chime, repeating | Yes |
 | **Caution** | Noteworthy conditions, not immediately hazardous | None | No |
 
-All audible patterns repeat until the alert is acknowledged or silenced. Each priority has a distinct frequency (880/660/440 Hz) and pulse pattern inspired by IEC 60601-1-8.
+All audible patterns repeat until the alert is acknowledged or silenced. Each priority has a distinct frequency (880/660/440 Hz) and pulse pattern adapted from IEC 60601-1-8 (a medical-alarm ergonomics standard, borrowed for its tested priority-distinguishable tones — not a marine reference).
 
 ### Alert Lifecycle
 
-Alerts follow the IEC 62682 state model:
+Alerts follow the IEC 62923 four-state alert lifecycle:
 
 ```
                  condition                    condition clears
@@ -65,7 +67,7 @@ Caution-priority alerts skip acknowledgment — they clear automatically when th
 
 ### Latching
 
-Some alerts represent one-shot events (e.g., waypoint arrival, anchor drag detected) where the triggering condition is momentary. Latching alerts remain active after the condition clears and must be explicitly acknowledged to dismiss.
+Some alerts represent one-shot events (e.g., waypoint arrival, anchor drag detected) where the triggering condition is momentary. Latching alerts remain active after the condition clears and must be explicitly acknowledged to dismiss. (Latching is borrowed from IEC 62682; marine BAM does not define it.)
 
 ### Silencing
 
@@ -95,7 +97,7 @@ Each alert is identified by its `path` (with optional `context` for multi-vessel
 
 **Who can acknowledge, silence, and clear?** Any authenticated user can perform any operation on any alert, regardless of who raised it. There is no per-alert ownership or role-based restriction. This is intentional: in a bridge context, any watchkeeper must be able to respond to any alert immediately. The operator's identity is recorded for audit purposes (in `acknowledgedBy` and in the history log) but is not used for access control.
 
-**Who manages alert state?** The `AlertManager` is the single source of truth. All state transitions — whether triggered by the REST API, the plugin API, or the notification transformer — pass through the AlertManager, which enforces the IEC 62682 state machine rules, manages escalation timers, and persists changes to the SQLite store. No external actor can modify alert state directly.
+**Who manages alert state?** The `AlertManager` is the single source of truth. All state transitions — whether triggered by the REST API, the plugin API, or the notification transformer — pass through the AlertManager, which enforces the alert lifecycle state-machine rules, manages escalation timers, and persists changes to the SQLite store. No external actor can modify alert state directly.
 
 **Authentication** is handled entirely by the Signal K server. All REST API routes inherit the server's admin authentication middleware; unauthenticated requests are rejected before reaching the plugin. The plugin API has no authentication layer — any plugin running in the server process can call `app.alertManager`.
 
@@ -459,7 +461,8 @@ npm run ci             # Full CI check (typecheck + lint + format + test)
 
 - [IMO MSC.302(87)](https://www.imo.org/en/OurWork/Safety/Pages/BridgeAlertManagement.aspx) — Performance Standards for Bridge Alert Management
 - [IMO A.1021(26)](https://www.imo.org/en/KnowledgeCentre/IndexofIMOResolutions/Pages/A-2009-11.aspx) — Code on Alerts and Indicators
-- IEC 62682:2023 — Management of alarm systems for the process industries
+- IEC 62923-1/-2:2018 — Bridge Alert Management (IEC realization of MSC.302(87); the formal alert state model and alert/indicator lists)
+- IEC 62682:2023 — Management of alarm systems for the process industries (source of the borrowed latching concept)
 - [OpenBridge Design System](https://www.openbridge.no/) — Maritime UI design guidelines
 - [Signal K Specification](https://signalk.org/specification/) — Signal K data model and notification schema
 - [signalk-server#1857](https://github.com/SignalK/signalk-server/issues/1857) — Discussion on alert data model and lifecycle
