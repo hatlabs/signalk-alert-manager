@@ -403,6 +403,8 @@ export class AlertStore implements IAlertStore {
       db.exec('DROP INDEX IF EXISTS idx_alerts_category')
       db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_group ON alerts(group_name)')
 
+      this.renameHistoryDetailsCategory(db)
+
       const stmt = db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
       stmt.run(3, new Date().toISOString())
 
@@ -410,6 +412,45 @@ export class AlertStore implements IAlertStore {
     } catch (error) {
       db.exec('ROLLBACK')
       throw error
+    }
+  }
+
+  /**
+   * Rewrite legacy history snapshots that embed the grouping under the old
+   * `category` key, renaming it to `group` to match the alerts column rename.
+   * Null or malformed `details` blobs are skipped so a single bad row never
+   * fails the migration.
+   */
+  private renameHistoryDetailsCategory(db: DatabaseSync): void {
+    const rows = db
+      .prepare(
+        "SELECT id, details FROM history WHERE details IS NOT NULL AND details LIKE '%category%'"
+      )
+      .all() as unknown as { id: string; details: string }[]
+
+    const update = db.prepare('UPDATE history SET details = ? WHERE id = ?')
+
+    for (const row of rows) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(row.details)
+      } catch {
+        continue
+      }
+      if (typeof parsed !== 'object' || parsed === null || !('category' in parsed)) {
+        continue
+      }
+
+      const rewritten: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        if (key === 'category') {
+          rewritten.group = value
+        } else {
+          rewritten[key] = value
+        }
+      }
+
+      update.run(JSON.stringify(rewritten), row.id)
     }
   }
 

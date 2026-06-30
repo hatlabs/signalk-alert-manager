@@ -639,6 +639,21 @@ describe('AlertStore', () => {
         )
       `)
       legacyDb.exec('CREATE INDEX idx_alerts_category ON alerts(category)')
+      // A real v2 database always carries the history table (created at v1).
+      legacyDb.exec(`
+        CREATE TABLE history (
+          id TEXT PRIMARY KEY,
+          alert_id TEXT NOT NULL,
+          event_type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          user_id TEXT,
+          previous_state TEXT,
+          new_state TEXT,
+          previous_priority TEXT,
+          new_priority TEXT,
+          details TEXT
+        )
+      `)
       legacyDb
         .prepare(
           `INSERT INTO alerts (
@@ -685,6 +700,98 @@ describe('AlertStore', () => {
         .get() as { version: number }
       versionDb.close()
       expect(versionRow.version).toBe(4)
+    })
+
+    it('migration v3 rewrites legacy history details category key to group', async () => {
+      const { DatabaseSync } = await import('node:sqlite')
+
+      // Build a schema-version-2 database whose history snapshot embeds the
+      // grouping under the old `category` key (AlertManager.logHistory now
+      // writes `group`).
+      const legacyDb = new DatabaseSync(testDbPath)
+      legacyDb.exec('PRAGMA journal_mode = WAL')
+      legacyDb.exec(`
+        CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+        INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01T00:00:00Z');
+        INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-01-01T00:00:00Z');
+      `)
+      legacyDb.exec(`
+        CREATE TABLE alerts (
+          id TEXT PRIMARY KEY,
+          path TEXT NOT NULL,
+          source_ref TEXT NOT NULL,
+          source_obj TEXT,
+          priority TEXT NOT NULL,
+          state TEXT NOT NULL,
+          condition INTEGER NOT NULL,
+          latching INTEGER NOT NULL,
+          silenced INTEGER NOT NULL,
+          silenced_until TEXT,
+          message TEXT NOT NULL,
+          category TEXT,
+          data TEXT,
+          raised_at TEXT NOT NULL,
+          acknowledged_at TEXT,
+          acknowledged_by TEXT,
+          cleared_at TEXT,
+          source_online INTEGER NOT NULL,
+          last_source_update TEXT NOT NULL,
+          stale INTEGER NOT NULL,
+          context TEXT
+        )
+      `)
+      legacyDb.exec('CREATE INDEX idx_alerts_category ON alerts(category)')
+      legacyDb.exec(`
+        CREATE TABLE history (
+          id TEXT PRIMARY KEY,
+          alert_id TEXT NOT NULL,
+          event_type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          user_id TEXT,
+          previous_state TEXT,
+          new_state TEXT,
+          previous_priority TEXT,
+          new_priority TEXT,
+          details TEXT
+        )
+      `)
+      legacyDb
+        .prepare(
+          `INSERT INTO history (id, alert_id, event_type, timestamp, details)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run(
+          'hist-1',
+          'legacy-alert',
+          'raise',
+          '2026-03-01T12:00:00.000Z',
+          JSON.stringify({ message: 'Legacy raised', priority: 'alarm', category: 'engine' })
+        )
+      // A null details blob must be left untouched, not crash the migration.
+      legacyDb
+        .prepare(
+          `INSERT INTO history (id, alert_id, event_type, timestamp, details)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('hist-2', 'legacy-alert', 'acknowledge', '2026-03-01T12:05:00.000Z', null)
+      legacyDb.close()
+
+      await store.initialize()
+
+      // The migrated snapshot renames category → group, preserving the value.
+      const verifyDb = new DatabaseSync(testDbPath)
+      const migratedRow = verifyDb
+        .prepare('SELECT details FROM history WHERE id = ?')
+        .get('hist-1') as { details: string }
+      const nullRow = verifyDb
+        .prepare('SELECT details FROM history WHERE id = ?')
+        .get('hist-2') as { details: string | null }
+      verifyDb.close()
+
+      const details = JSON.parse(migratedRow.details) as Record<string, unknown>
+      expect(details.group).toBe('engine')
+      expect(details).not.toHaveProperty('category')
+      expect(nullRow.details).toBeNull()
     })
   })
 })
