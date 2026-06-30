@@ -55,6 +55,17 @@ export class AlertStore implements IAlertStore {
 
       return Promise.resolve()
     } catch (error) {
+      // Migration (or open) failed: tear down the half-initialized connection
+      // and reset state so a retried initialize() re-runs migrations on a
+      // fresh connection instead of reporting false success via the guard above.
+      if (this.db) {
+        try {
+          this.db.close()
+        } catch {
+          // Ignore close failures during cleanup of a failed init.
+        }
+        this.db = null
+      }
       return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
   }

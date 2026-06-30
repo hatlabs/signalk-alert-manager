@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   AlertManager,
   type AlertManagerConfig,
@@ -1739,13 +1739,18 @@ describe('AlertManager', () => {
       expect(manager.getActiveAlertCount()).toBe(0)
     })
 
-    it('should handle store.getAll() failure gracefully', async () => {
+    it('should fail loudly when store.getAll() fails', async () => {
+      // Deliberate behavior change: an unreadable store must surface as a
+      // startup failure rather than silently presenting an empty alert set.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
       store.getAll = () => {
         return Promise.reject(new Error('SQLite disk I/O error'))
       }
 
-      await expect(manager.loadFromStore()).resolves.not.toThrow()
+      await expect(manager.loadFromStore()).rejects.toThrow('SQLite disk I/O error')
       expect(manager.getActiveAlertCount()).toBe(0)
+      expect(errorSpy).toHaveBeenCalled()
+      errorSpy.mockRestore()
     })
 
     it('should work without store configured', async () => {

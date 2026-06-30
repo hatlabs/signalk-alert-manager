@@ -793,5 +793,32 @@ describe('AlertStore', () => {
       expect(details).not.toHaveProperty('category')
       expect(nullRow.details).toBeNull()
     })
+
+    it('rejects and leaves the store unusable when a migration fails', async () => {
+      const { DatabaseSync } = await import('node:sqlite')
+
+      // Build a database stamped at schema version 2 but whose alerts table is
+      // missing the `category` column, so migrateToV3's column rename throws.
+      const legacyDb = new DatabaseSync(testDbPath)
+      legacyDb.exec('PRAGMA journal_mode = WAL')
+      legacyDb.exec(`
+        CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+        INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01T00:00:00Z');
+        INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-01-01T00:00:00Z');
+      `)
+      legacyDb.exec(`
+        CREATE TABLE alerts (
+          id TEXT PRIMARY KEY,
+          message TEXT NOT NULL
+        )
+      `)
+      legacyDb.close()
+
+      await expect(store.initialize()).rejects.toThrow()
+
+      // The failed init must null the connection so a retried operation reports
+      // "not initialized" rather than silently succeeding on a half-migrated DB.
+      await expect(store.get('anything')).rejects.toThrow('not initialized')
+    })
   })
 })

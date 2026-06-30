@@ -156,8 +156,10 @@ export class AlertManager extends EventEmitter {
     try {
       alerts = await this.store.getAll()
     } catch (err) {
+      // Fail loudly: an unreadable store must surface as a startup failure
+      // rather than silently presenting zero active alerts as truth.
       console.error('Failed to load alerts from store:', err)
-      return
+      throw err
     }
 
     for (const alert of alerts) {
@@ -636,8 +638,9 @@ export class AlertManager extends EventEmitter {
 
     // Persist escalation to store
     if (this.store) {
-      this.store.update(escalated).catch(() => {
-        // Log error but don't fail - escalation already applied in memory
+      this.store.update(escalated).catch((err: unknown) => {
+        // Log but don't fail - escalation already applied in memory
+        console.error(`Failed to persist escalation for alert ${alertId}:`, err)
       })
     }
 
@@ -862,8 +865,9 @@ export class AlertManager extends EventEmitter {
 
     // Persist to store
     if (this.store) {
-      this.store.update(unsilenced).catch(() => {
-        // Log error but don't fail - unsilence already applied in memory
+      this.store.update(unsilenced).catch((err: unknown) => {
+        // Log but don't fail - unsilence already applied in memory
+        console.error(`Failed to persist unsilence for alert ${alertId}:`, err)
       })
     }
 
