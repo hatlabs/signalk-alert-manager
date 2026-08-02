@@ -98,6 +98,7 @@ This plugin implements a recreational *subset* of IEC 62923 bridge alert managem
 - **No alert categories A/B/C.** IEC 62923-1 (6.2.2.2) categorizes alerts by *where* they may be acknowledged. On a single-display helm every alert is acknowledgeable in one place. (The plugin's `group` field is an unrelated UI grouping, not the IEC alert category.)
 - **Escalation: change-to-alarm only.** IEC 62923-1 (6.3.7.1) also permits "repeat as warning"; we implement only the change-to-alarm option, within the IEC ≤5 min ceiling (default 300 s).
 - **Alert identity.** We use a per-occurrence UUID plus the Signal K path; IEC 62923-2 uses a standardized alert identifier (type) plus an instance. Internal-only today; the gap for N2K/ALF export is tracked in #101.
+- **Caution alerts are operator-dismissable.** IEC 62923-1 returns an alert to `normal` only when its triggering condition clears. Caution additionally accepts an explicit operator *dismiss*, which forces the condition inactive. Signal K notification sources are frequently one-shot — they emit the caution and never emit a matching `normal` — so without a dismiss such an alert stays on the list indefinitely. Dismiss is offered for caution only, in any state but `normal`; warning, alarm and emergency still require the condition to clear.
 
 ## 4. Alert Data Model
 
@@ -333,6 +334,7 @@ The UI follows **OpenBridge** design guidelines for maritime alert interfaces:
 3. **Alert Detail**: Expanded view with full context and history
 4. **Acknowledge Controls**: Per-alert and bulk actions
 5. **Silence Controls**: Per-alert and global silence
+6. **Dismiss Control**: Per-alert dismissal of caution alerts, forcing the triggering condition inactive (see §3.4)
 
 ### 8.3 Audio Indicators
 

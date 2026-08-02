@@ -692,6 +692,24 @@ describe('REST API Routes', () => {
       expect(body.cleared).toBe(true)
     })
 
+    it('should clear an acknowledged caution alert (UI dismiss path)', async () => {
+      const alert = await raiseTestAlert(ctx, { priority: 'caution' })
+      await ctx.manager.acknowledgeAlert(alert.id)
+
+      const res = await fetch(`${ctx.baseUrl}/alerts/${alert.id}/condition`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: false })
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        alert: Alert | null
+        cleared: boolean
+      }
+      expect(body.cleared).toBe(true)
+      expect(ctx.manager.getAlert(alert.id)).toBeNull()
+    })
+
     it('should return current alert state for active: true (no-op)', async () => {
       const alert = await raiseTestAlert(ctx)
 

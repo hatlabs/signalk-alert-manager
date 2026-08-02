@@ -7,7 +7,7 @@
 
 import { LitElement, html, css, nothing } from 'lit'
 import type { Alert } from '../../types.js'
-import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
+import { ICON_ACKNOWLEDGE, ICON_DISMISS, ICON_SILENCE } from '../styles/icons.js'
 import { priorityVars, PRIORITY_LABELS, STATE_LABELS, isAudible } from '../styles/priority.js'
 import type { MinAudiblePriority } from '../styles/priority.js'
 import { themeStyles } from '../styles/theme.js'
@@ -178,6 +178,11 @@ export class AlertCard extends LitElement {
         color: var(--btn-silence-text);
       }
 
+      .actions button[data-action='dismiss'] {
+        border-color: var(--btn-dismiss-border);
+        color: var(--btn-dismiss-text);
+      }
+
       @media (max-width: 480px) {
         .card {
           flex-wrap: wrap;
@@ -249,6 +254,10 @@ export class AlertCard extends LitElement {
     this.startAction('alert-silence')
   }
 
+  private onDismiss(): void {
+    this.startAction('alert-dismiss')
+  }
+
   private onSelect(): void {
     this.dispatchEvent(
       new CustomEvent('alert-select', {
@@ -270,7 +279,10 @@ export class AlertCard extends LitElement {
     const showAck = isUnacked
     const showSilence =
       isUnacked && !this.alert.silenced && isAudible(this.alert.priority, this.minAudiblePriority)
-    const hasActions = showAck || showSilence
+    // Caution never returns to normal on acknowledgement, so a source that
+    // never retracts its condition needs an operator exit (issue #99).
+    const showDismiss = this.alert.priority === 'caution' && this.alert.state !== 'normal'
+    const hasActions = showAck || showSilence || showDismiss
 
     return html`
       <div
@@ -312,6 +324,17 @@ export class AlertCard extends LitElement {
                       @click=${this.onAcknowledge}
                     >
                       <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
+                    </button>`
+                  : nothing}
+                ${showDismiss
+                  ? html`<button
+                      data-action="dismiss"
+                      title="Dismiss"
+                      aria-label="Dismiss: ${this.alert.message}"
+                      ?disabled=${this.actionInFlight}
+                      @click=${this.onDismiss}
+                    >
+                      <svg viewBox="0 0 24 24"><path d=${ICON_DISMISS} /></svg>
                     </button>`
                   : nothing}
               </div>

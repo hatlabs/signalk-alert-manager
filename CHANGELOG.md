@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Dismiss action on caution alerts in the alert list and detail views. A caution clears when its condition returns to normal, not on acknowledgement, so a one-shot Signal K notification — a source that never retracts what it raised — left the alert stuck in the list with no remaining control. Dismiss clears the condition through the existing `PUT /alerts/{id}/condition` endpoint.
+
 ### Removed
 
 - **BREAKING:** The `app.alertManager` plugin API, its `AlertManagerAPI` exported type, and the `@signalk/server-api` module augmentation that declared it. Signal K server hands every plugin its own copy of the app object, so the property was never visible to any other plugin; the augmentation made calls to it type-check in plugin authors' editors while failing at runtime. Plugins raise and clear alerts by publishing `alerts.*` deltas and use the REST API for acknowledge, silence, and queries.

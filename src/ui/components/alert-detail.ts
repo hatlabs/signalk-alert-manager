@@ -9,7 +9,7 @@ import { LitElement, html, css, nothing } from 'lit'
 import type { Alert, HistoryEntry, HistoryEventType } from '../../types.js'
 import { acquireAlertService, releaseAlertService } from '../services/alert-service.js'
 import type { AlertService } from '../services/alert-service.js'
-import { ICON_ACKNOWLEDGE, ICON_SILENCE } from '../styles/icons.js'
+import { ICON_ACKNOWLEDGE, ICON_DISMISS, ICON_SILENCE } from '../styles/icons.js'
 import {
   priorityVars,
   PRIORITY_LABELS,
@@ -222,6 +222,11 @@ export class AlertDetail extends LitElement {
       .actions button[data-action='silence'] {
         border-color: var(--btn-silence-border);
         color: var(--btn-silence-text);
+      }
+
+      .actions button[data-action='dismiss'] {
+        border-color: var(--btn-dismiss-border);
+        color: var(--btn-dismiss-text);
       }
 
       .timeline-title {
@@ -485,6 +490,16 @@ export class AlertDetail extends LitElement {
     })
   }
 
+  private onDismiss(): void {
+    this.actionInFlight = true
+    this.safetyTimer = setTimeout(() => {
+      this.actionInFlight = false
+    }, ACTION_TIMEOUT_MS)
+    this.service.dismissAlert(this.alertId).catch(() => {
+      this.actionInFlight = false
+    })
+  }
+
   private renderBackButton() {
     return html`<button data-action="close" aria-label="Back to alert list" @click=${this.onClose}>
       Back
@@ -506,6 +521,10 @@ export class AlertDetail extends LitElement {
     const showAck = isUnacked
     const showSilence =
       isUnacked && !this.alert.silenced && isAudible(this.alert.priority, this.minAudiblePriority)
+    // Caution never returns to normal on acknowledgement, so a source that
+    // never retracts its condition needs an operator exit (issue #99).
+    // Alerts reconstructed from history are already cleared ('normal').
+    const showDismiss = this.alert.priority === 'caution' && this.alert.state !== 'normal'
 
     return html`
       <div
@@ -565,7 +584,7 @@ export class AlertDetail extends LitElement {
                 </div>
               `
             : nothing}
-          ${showAck || showSilence
+          ${showAck || showSilence || showDismiss
             ? html`
                 <div class="actions">
                   ${showSilence
@@ -588,6 +607,17 @@ export class AlertDetail extends LitElement {
                         @click=${this.onAcknowledge}
                       >
                         <svg viewBox="0 0 24 24"><path d=${ICON_ACKNOWLEDGE} /></svg>
+                      </button>`
+                    : nothing}
+                  ${showDismiss
+                    ? html`<button
+                        data-action="dismiss"
+                        title="Dismiss"
+                        aria-label="Dismiss: ${this.alert.message}"
+                        ?disabled=${this.actionInFlight}
+                        @click=${this.onDismiss}
+                      >
+                        <svg viewBox="0 0 24 24"><path d=${ICON_DISMISS} /></svg>
                       </button>`
                     : nothing}
                 </div>

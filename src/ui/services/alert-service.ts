@@ -101,6 +101,24 @@ export class AlertService extends EventTarget {
   }
 
   /**
+   * Dismiss an alert by clearing its triggering condition.
+   *
+   * Needed for one-shot sources that never retract their notification:
+   * without it a caution alert stays in the list forever (see §2.1 — caution
+   * clears on condition return, not on acknowledgement).
+   */
+  async dismissAlert(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/alerts/${id}/condition`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: false })
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to dismiss alert: ${String(response.status)} ${response.statusText}`)
+    }
+  }
+
+  /**
    * Fetch alert history from the REST API.
    * Does not require WebSocket state — works as a standalone query.
    */

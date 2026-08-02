@@ -693,6 +693,29 @@ describe('AlertService', () => {
     })
   })
 
+  describe('dismissAlert()', () => {
+    it('sends PUT to the condition endpoint with active false', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      await service.dismissAlert('alert-42')
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/plugins/signalk-alert-manager/alerts/alert-42/condition',
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: false })
+        }
+      )
+    })
+
+    it('throws on non-ok response', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 404, statusText: 'Not Found' })
+
+      await expect(service.dismissAlert('bad-id')).rejects.toThrow()
+    })
+  })
+
   describe('silenceAll()', () => {
     it('sends POST to silence-all endpoint', async () => {
       fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
