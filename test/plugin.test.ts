@@ -172,9 +172,8 @@ describe('Signal K Plugin', () => {
       // Wait for the async chain to settle
       await new Promise((r) => setTimeout(r, 100))
 
-      // alertManager should not be set since we stopped during init
-      const appWithApi = mockApi as unknown as ServerAPI
-      expect(appWithApi.alertManager).toBeUndefined()
+      // Initialization aborted, so the plugin never reached the running state
+      expect(mockApi.getPluginStatus()).not.toBe('Running')
     })
 
     it('should guard against double start', async () => {
@@ -189,8 +188,18 @@ describe('Signal K Plugin', () => {
       })
 
       // Should still be functional
-      const api = (mockApi as unknown as ServerAPI).alertManager
-      expect(api).toBeDefined()
+      expect(mockApi.getPluginStatus()).toBe('Running')
+    })
+
+    it('should not attach a cross-plugin API to the app object', async () => {
+      plugin.start({}, () => {
+        /* restart callback */
+      })
+      await plugin.whenReady?.()
+
+      // Signal K server gives each plugin its own copy of the app object, so
+      // properties attached here are invisible to every other plugin
+      expect(Object.hasOwn(mockApi, 'alertManager')).toBe(false)
     })
   })
 
