@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Removed
+
+- **BREAKING:** The `app.alertManager` plugin API, its `AlertManagerAPI` exported type, and the `@signalk/server-api` module augmentation that declared it. Signal K server hands every plugin its own copy of the app object, so the property was never visible to any other plugin; the augmentation made calls to it type-check in plugin authors' editors while failing at runtime. Plugins raise and clear alerts by publishing `alerts.*` deltas and use the REST API for acknowledge, silence, and queries.
+
 ## [0.2.0] - 2026-06-30
 
 ### Changed
@@ -29,7 +35,6 @@ Initial release.
 - Source liveness tracking with stale alert detection
 - SQLite persistence for alerts and full audit history (via Node.js 22 `node:sqlite`)
 - REST API for all alert operations
-- Plugin API (`app.alertManager`) for inter-plugin integration
 - Signal K notification interception and automatic transformation to managed alerts
 - Delta publishing for real-time WebSocket updates
 - Web UI with alert list, alert detail view, alert banner, and audio indicators (Lit web components)
