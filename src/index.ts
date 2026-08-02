@@ -7,7 +7,7 @@
 import { join } from 'path'
 import type { IRouter } from 'express'
 import type { Plugin, ServerAPI } from '@signalk/server-api'
-import type { AlertDefinition, AlertManagerAPI, PluginConfig } from './types.js'
+import type { PluginConfig } from './types.js'
 import { AlertManager, type AlertManagerConfig } from './core/AlertManager.js'
 import { AlertStore } from './store/AlertStore.js'
 import { HistoryStore } from './store/HistoryStore.js'
@@ -23,7 +23,6 @@ export type {
   AlertState,
   Alert,
   AlertDefinition,
-  AlertManagerAPI,
   AlertTransitionResult,
   RaiseAlertRequest,
   AlertFilter,
@@ -192,7 +191,6 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
   let historyStore: HistoryStore | undefined
   let readyPromise: Promise<void> | undefined
   let uiConfig: UiConfig = { minAudiblePriority: 'warning', enableSimulation: false }
-  const alertTypes = new Map<string, AlertDefinition>()
 
   const plugin: AlertManagerPlugin = {
     id: 'signalk-alert-manager',
@@ -286,21 +284,6 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
           return
         }
 
-        const api: AlertManagerAPI = {
-          raiseAlert: (params) => mgr.raiseAlert(params),
-          escalateAlert: (alertId, newPriority) => mgr.escalateAlert(alertId, newPriority),
-          clearCondition: (alertId) => mgr.clearCondition(alertId),
-          acknowledgeAlert: (alertId, userId) => mgr.acknowledgeAlert(alertId, userId),
-          silenceAlert: (alertId, durationMs) => mgr.silenceAlert(alertId, durationMs),
-          silenceAll: () => mgr.silenceAll(),
-          getAlerts: (filter) => mgr.getAlerts(filter),
-          getAlert: (id) => mgr.getAlert(id),
-          registerAlertType: (definition) => {
-            alertTypes.set(definition.alertType, definition)
-          }
-        }
-        app.alertManager = api
-
         app.setPluginStatus('Running')
       })()
 
@@ -324,8 +307,6 @@ export default function createPlugin(app: ServerAPI): AlertManagerPlugin {
       alertDeltaTransformer?.stop()
       publisher?.stop()
       manager?.stop()
-      delete app.alertManager
-      alertTypes.clear()
 
       alertStore?.close().catch(() => undefined)
       historyStore?.close().catch(() => undefined)
