@@ -6,7 +6,7 @@ Signal K server plugin for centralized alert management following the IMO bridge
 
 Signal K's server includes a Notifications API that assigns each notification an ID and can raise, acknowledge, and silence it. What it doesn't provide is the alert management the IMO bridge alert management standards (MSC.302(87), realized in IEC 62923) call for: a formal lifecycle state machine with return-to-normal handling, persistence across restarts, automatic escalation, source-liveness tracking, and an audit trail.
 
-signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, a plugin API for other Signal K plugins, incoming `alerts.*` deltas from devices, or automatically from existing `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
+signalk-alert-manager provides a standalone alert management system based on these standards. Alerts can be raised through multiple paths — a REST API, incoming `alerts.*` deltas from devices and other plugins, or automatically from existing `notifications.*` deltas — and all alerts receive the same lifecycle management regardless of how they entered the system.
 
 ### Relationship to Signal K Notifications
 
@@ -26,7 +26,7 @@ The comparison below summarizes the differences:
 | History | None | Full audit trail with query API |
 | Source tracking | `$source` field | Source liveness monitoring, stale detection |
 | Priority model | Same as the severity `state` — one dimension, no separate axis | Separate axis from lifecycle state, with defined per-level behavior |
-| Creation | Zone triggers, manual deltas, or the Notifications API (REST/plugin) | REST API, plugin API, `alerts.*` deltas, and notification ingestion |
+| Creation | Zone triggers, manual deltas, or the Notifications API (REST/plugin) | REST API, `alerts.*` deltas, and notification ingestion |
 
 > **Priority model** here means how urgency is *represented*, not whether it exists. Notifications fold urgency into the `state` value, so the severity levels (`alert`/`warn`/`alarm`/`emergency`) and the field that changes over the notification's life are one and the same. The alert manager keeps priority as a separate axis from lifecycle state — an alert holds its priority while moving through the lifecycle — and attaches behavior to each level (audible pattern, acknowledgment requirement, escalation eligibility). See [Priority Levels](#priority-levels).
 
@@ -86,9 +86,8 @@ Each alert tracks its source. If a source stops sending updates, the alert is ma
 
 ### Actors and Ownership
 
-**Who creates alerts?** Alerts enter the system through four ingress paths:
+**Who creates alerts?** Alerts enter the system through three ingress paths:
 
-- **Plugin API** — Signal K plugins raise alerts programmatically via `app.alertManager.raiseAlert()`, providing a `path` to identify the data point and a `$source` to identify themselves.
 - **REST API** — Authenticated HTTP clients raise alerts via `POST /alerts`. The caller must provide a `path`; `$source` is optional and defaults to `'rest-api'`.
 - **Alert deltas** — Devices and plugins can raise alerts by publishing Signal K deltas with `alerts.*` paths. See [Alert Delta Ingestion](#alert-delta-ingestion) below.
 - **Notification ingestion** — The plugin intercepts incoming `notifications.*` deltas and transforms them into managed alerts. This is how zone-based alarms and other plugins that use the existing notification mechanism enter the alert system. The alert's `path` is derived from the notification path with the `notifications.` prefix stripped (e.g., `notifications.propulsion.main.coolantTemperature` → path `propulsion.main.coolantTemperature`).
@@ -97,9 +96,9 @@ Each alert is identified by its `path` (with optional `context` for multi-vessel
 
 **Who can acknowledge, silence, and clear?** Any authenticated user can perform any operation on any alert, regardless of who raised it. There is no per-alert ownership or role-based restriction. This is intentional: in a bridge context, any watchkeeper must be able to respond to any alert immediately. The operator's identity is recorded for audit purposes (in `acknowledgedBy` and in the history log) but is not used for access control.
 
-**Who manages alert state?** The `AlertManager` is the single source of truth. All state transitions — whether triggered by the REST API, the plugin API, or the notification transformer — pass through the AlertManager, which enforces the alert lifecycle state-machine rules, manages escalation timers, and persists changes to the SQLite store. No external actor can modify alert state directly.
+**Who manages alert state?** The `AlertManager` is the single source of truth. All state transitions — whether triggered by the REST API, alert deltas, or the notification transformer — pass through the AlertManager, which enforces the alert lifecycle state-machine rules, manages escalation timers, and persists changes to the SQLite store. No external actor can modify alert state directly.
 
-**Authentication** is handled entirely by the Signal K server. All REST API routes inherit the server's admin authentication middleware; unauthenticated requests are rejected before reaching the plugin. The plugin API has no authentication layer — any plugin running in the server process can call `app.alertManager`.
+**Authentication** is handled entirely by the Signal K server. All REST API routes inherit the server's admin authentication middleware; unauthenticated requests are rejected before reaching the plugin. Alert deltas published from within the server process (i.e. by plugins via `app.handleMessage()`) are not subject to this authentication layer.
 
 ## Installation
 
@@ -241,46 +240,13 @@ GET /plugins/signalk-alert-manager/config/ui
 
 Returns browser-relevant settings (audio threshold, simulation mode).
 
-## Plugin API
+## Plugin Integration
 
-Other Signal K plugins can interact with alerts programmatically via `app.alertManager`:
+Signal K server gives every plugin its own isolated copy of the server app object, so the alert manager cannot expose an in-process JavaScript API to other plugins. Plugins integrate through the same interfaces as external clients:
 
-```typescript
-// Raise an alert
-const alert = await app.alertManager.raiseAlert({
-  $source: 'my-plugin',
-  priority: 'warning',
-  message: 'Anchor watch: vessel outside radius',
-  group: 'navigation',
-  latching: true
-})
-
-// Acknowledge
-await app.alertManager.acknowledgeAlert(alert.id, 'operator-1')
-
-// Clear condition
-await app.alertManager.clearCondition(alert.id)
-
-// Silence for 60 seconds (plugin API takes milliseconds; REST API takes seconds)
-await app.alertManager.silenceAlert(alert.id, 60000)
-
-// Silence all audible alerts
-await app.alertManager.silenceAll()
-
-// Query alerts
-const emergencies = app.alertManager.getAlerts({ priority: 'emergency' })
-const unacked = app.alertManager.getAlerts({ state: 'unacknowledged' })
-
-// Register a reusable alert type (reserved for future use — definitions
-// are stored but not yet consumed by raiseAlert)
-app.alertManager.registerAlertType({
-  alertType: 'engine.coolant.high',
-  defaultPriority: 'alarm',
-  latching: false,
-  message: 'Engine coolant temperature high',
-  group: 'engine'
-})
-```
+- **Raise and clear alerts** by publishing `alerts.*` deltas with `app.handleMessage()` — see [Alert Delta Ingestion](#alert-delta-ingestion).
+- **React to alert state changes** by subscribing to the `alerts.*` deltas the alert manager publishes — see [Delta Publishing](#delta-publishing).
+- **Acknowledge, silence, and query** through the [REST API](#api-reference).
 
 TypeScript types are exported from the package for use in plugin development:
 
@@ -289,7 +255,6 @@ import type {
   Alert,
   AlertPriority,
   AlertState,
-  AlertManagerAPI,
   RaiseAlertRequest,
   AlertFilter,
   HistoryEntry

@@ -288,21 +288,9 @@ app.registerDeltaInputHandler((delta, next) => {
 
 The alert delta ingress allows other plugins and external sources to raise alerts using the alert manager's native data model, bypassing the notification-to-alert mapping layer.
 
-### 5.3 Plugin API Export
+### 5.3 Cross-Plugin Access
 
-Expose AlertManagerAPI for other plugins:
-
-```typescript
-// In plugin start()
-app.alertManager = {
-  raiseAlert,
-  clearCondition,
-  acknowledgeAlert,
-  silenceAlert,
-  getAlerts,
-  registerAlertType
-}
-```
+Signal K server hands each plugin an isolated copy of the app object, so an in-process API export (such as assigning `app.alertManager`) is not reachable from other plugins. Cross-plugin integration uses the alert delta ingress (5.2) for raising and clearing alerts and the REST API for acknowledge, silence, and queries.
 
 ## 6. Security Considerations
 

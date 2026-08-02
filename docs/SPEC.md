@@ -167,9 +167,8 @@ interface AlertDefinition {
 
 1. **Signal K Notifications**: Existing `notifications.*` paths are intercepted and transformed
 2. **Signal K Alert Deltas**: Deltas on `alerts.*` paths are ingested directly, allowing other plugins and external sources to raise alerts using the native alert data model without going through the notification mapping layer
-3. **Plugin API**: Other plugins raise alerts via ServerAPI methods
-4. **HTTP API**: External clients raise alerts via REST endpoints
-5. **NMEA 2000**: PGN 126983 alerts received and published bidirectionally
+3. **HTTP API**: External clients raise alerts via REST endpoints
+4. **NMEA 2000**: PGN 126983 alerts received and published bidirectionally
 
 ### 5.2 Source Authentication
 

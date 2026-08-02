@@ -131,7 +131,7 @@ IEC 62682 is a process-industry alarm standard. The alert-manager borrows two co
 | History | No | Yes (event history with configurable retention) |
 | Source liveness | No | Yes (stale detection when source goes offline) |
 | Web UI | No (API only, consumers build their own) | Yes (Lit-based alert panel) |
-| Plugin interface | Yes (expanded in PR #2560) | Yes (Signal K plugin API) |
+| Plugin interface | Yes (expanded in PR #2560) | Via `alerts.*` deltas and REST (plugins receive isolated app copies, so no in-process API) |
 
 ## 5. Implementation Status
 
