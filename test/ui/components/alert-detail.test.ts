@@ -393,6 +393,41 @@ describe('AlertDetail', () => {
       expect(ackBtn).not.toBeNull()
     })
 
+    it('shows dismiss button for acknowledged caution alerts', async () => {
+      const el = await createElement(makeAlert({ state: 'acknowledged', priority: 'caution' }))
+      const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]')
+      expect(dismissBtn).not.toBeNull()
+    })
+
+    it('shows dismiss button for unacknowledged caution alerts', async () => {
+      const el = await createElement(makeAlert({ state: 'unacknowledged', priority: 'caution' }))
+      const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]')
+      expect(dismissBtn).not.toBeNull()
+    })
+
+    it('hides dismiss button for ack-required priorities', async () => {
+      const el = await createElement(makeAlert({ state: 'acknowledged', priority: 'alarm' }))
+      const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]')
+      expect(dismissBtn).toBeNull()
+    })
+
+    it('sends dismiss API call on click', async () => {
+      const el = await createElement(makeAlert({ state: 'acknowledged', priority: 'caution' }))
+
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]') as HTMLButtonElement
+      dismissBtn.click()
+
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1]
+      expect(lastCall[0]).toContain('/alerts/alert-1/condition')
+      expect(lastCall[1]).toEqual({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: false })
+      })
+    })
+
     it('renders silence button before acknowledge button in DOM order', async () => {
       const el = await createElement(
         makeAlert({ state: 'unacknowledged', priority: 'alarm', silenced: false })

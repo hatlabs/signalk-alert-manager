@@ -180,6 +180,7 @@ export class AlertList extends LitElement {
     this.service.addEventListener('change', this.onServiceChange)
     this.addEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.addEventListener('alert-silence', this.onAlertSilence as EventListener)
+    this.addEventListener('alert-dismiss', this.onAlertDismiss as EventListener)
     // Service connects on first acquire; change event will fire when ready
     this.onServiceChange()
     this.fetchUiConfig()
@@ -215,6 +216,7 @@ export class AlertList extends LitElement {
     this.service.removeEventListener('change', this.onServiceChange)
     this.removeEventListener('alert-acknowledge', this.onAlertAcknowledge as EventListener)
     this.removeEventListener('alert-silence', this.onAlertSilence as EventListener)
+    this.removeEventListener('alert-dismiss', this.onAlertDismiss as EventListener)
     this.simulation.stop()
     releaseAlertService()
     releaseAudioService()
@@ -234,6 +236,12 @@ export class AlertList extends LitElement {
 
   private onAlertSilence = (e: CustomEvent<{ id: string }>): void => {
     this.service.silenceAlert(e.detail.id).catch(() => {
+      // Error handling — state will remain unchanged via WebSocket
+    })
+  }
+
+  private onAlertDismiss = (e: CustomEvent<{ id: string }>): void => {
+    this.service.dismissAlert(e.detail.id).catch(() => {
       // Error handling — state will remain unchanged via WebSocket
     })
   }

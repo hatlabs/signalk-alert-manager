@@ -309,9 +309,15 @@ describe('AlertCard', () => {
     })
 
     it('does not show actions area for acknowledged alerts', async () => {
-      const el = await createCard({ state: 'acknowledged' })
+      const el = await createCard({ state: 'acknowledged', priority: 'warning' })
       const actions = shadowQuery(el, '.actions')
       expect(actions).toBeNull()
+    })
+
+    it('shows actions area for acknowledged caution alerts', async () => {
+      const el = await createCard({ state: 'acknowledged', priority: 'caution' })
+      const actions = shadowQuery(el, '.actions')
+      expect(actions).not.toBeNull()
     })
 
     it('dispatches alert-acknowledge event on acknowledge click', async () => {
@@ -344,6 +350,40 @@ describe('AlertCard', () => {
 
       expect(handler).toHaveBeenCalledTimes(1)
       expect((handler.mock.calls[0][0] as CustomEvent).detail.id).toBe('test-456')
+    })
+
+    it('shows dismiss button for acknowledged caution alert', async () => {
+      const el = await createCard({ state: 'acknowledged', priority: 'caution' })
+      const btn = shadowQuery(el, '[data-action="dismiss"]')
+      expect(btn).not.toBeNull()
+    })
+
+    it('shows dismiss button for unacknowledged caution alert', async () => {
+      const el = await createCard({ state: 'unacknowledged', priority: 'caution' })
+      const btn = shadowQuery(el, '[data-action="dismiss"]')
+      expect(btn).not.toBeNull()
+    })
+
+    it('does not show dismiss button for ack-required priorities', async () => {
+      const el = await createCard({ state: 'acknowledged', priority: 'warning' })
+      const btn = shadowQuery(el, '[data-action="dismiss"]')
+      expect(btn).toBeNull()
+    })
+
+    it('dispatches alert-dismiss event on dismiss click', async () => {
+      const el = await createCard({
+        id: 'test-dismiss',
+        state: 'acknowledged',
+        priority: 'caution'
+      })
+      const handler = vi.fn()
+      el.addEventListener('alert-dismiss', handler)
+
+      const btn = shadowQuery(el, '[data-action="dismiss"]') as HTMLButtonElement
+      btn.click()
+
+      expect(handler).toHaveBeenCalledTimes(1)
+      expect((handler.mock.calls[0][0] as CustomEvent).detail.id).toBe('test-dismiss')
     })
 
     it('disables buttons after click (actionInFlight)', async () => {
@@ -757,6 +797,43 @@ describe('AlertList', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/plugins/signalk-alert-manager/alerts/evt-2/silence',
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+      )
+    })
+
+    it('calls service dismissAlert on alert-dismiss event', async () => {
+      const alerts = [makeAlert({ id: 'evt-3', state: 'acknowledged', priority: 'caution' })]
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(alerts)
+      })
+
+      const el = document.createElement('alert-list') as HTMLElement & {
+        updateComplete: Promise<boolean>
+      }
+      document.body.appendChild(el)
+      await updateComplete(el)
+      await new Promise((r) => setTimeout(r, 0))
+      await updateComplete(el)
+
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      const card = shadowQuery(el, 'alert-card')!
+      card.dispatchEvent(
+        new CustomEvent('alert-dismiss', {
+          detail: { id: 'evt-3' },
+          bubbles: true,
+          composed: true
+        })
+      )
+
+      await new Promise((r) => setTimeout(r, 0))
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/plugins/signalk-alert-manager/alerts/evt-3/condition',
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: false })
+        }
       )
     })
   })
