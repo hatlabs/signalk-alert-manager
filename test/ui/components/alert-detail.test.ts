@@ -405,6 +405,14 @@ describe('AlertDetail', () => {
       expect(dismissBtn).not.toBeNull()
     })
 
+    // A cleared caution reaches the detail view via reconstructAlertFromHistory,
+    // which hardcodes state 'normal' — dismissing it would PUT a 404.
+    it('hides dismiss button for cleared caution alerts', async () => {
+      const el = await createElement(makeAlert({ state: 'normal', priority: 'caution' }))
+      const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]')
+      expect(dismissBtn).toBeNull()
+    })
+
     it('hides dismiss button for ack-required priorities', async () => {
       const el = await createElement(makeAlert({ state: 'acknowledged', priority: 'alarm' }))
       const dismissBtn = shadowQuery(el, 'button[data-action="dismiss"]')
