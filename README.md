@@ -2,6 +2,8 @@
 
 Signal K server plugin for centralized alert management following the IMO bridge alert management standards (MSC.302(87) / IEC 62923).
 
+> **Core alerts and the Alert Console.** This plugin is the reference implementation behind a proposal to move alert management into signalk-server itself: [alerts subsystem 1/4](https://github.com/SignalK/signalk-server/pull/3009), [2/4](https://github.com/SignalK/signalk-server/pull/3010), [3/4](https://github.com/SignalK/signalk-server/pull/3011), [4/4](https://github.com/SignalK/signalk-server/pull/3012). Its operator UI continues as [signalk-alert-console](https://github.com/hatlabs/signalk-alert-console), a webapp for the core alerts API. On a server with core alerts, uninstall this plugin: core takes over every `alerts.*` delta, including this plugin's.
+
 ## Why This Plugin?
 
 Signal K's server includes a Notifications API that assigns each notification an ID and can raise, acknowledge, and silence it. What it doesn't provide is the alert management the IMO bridge alert management standards (MSC.302(87), realized in IEC 62923) call for: a formal lifecycle state machine with return-to-normal handling, persistence across restarts, automatic escalation, source-liveness tracking, and an audit trail.
